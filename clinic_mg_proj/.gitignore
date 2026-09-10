@@ -1,0 +1,17 @@
+# Virtual environment
+myvenv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.pyc
+
+# Django
+db.mysql
+
+# VS Code
+.vscode/
+
+# Environment variables
+.env
