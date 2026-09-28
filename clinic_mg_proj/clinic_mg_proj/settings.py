@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'doctorapp'
+    'receptionistapp'
 ]
 
 MIDDLEWARE = [
@@ -78,8 +78,8 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'clinic_mg_db',
         'USER':'root',
-        'PASSWORD':'Thariq@123',
-        'HOST':'loclahost',
+        'PASSWORD':'Yasin@2004',
+        'HOST':'localhost',
         'PORT':3306
     }
 }
