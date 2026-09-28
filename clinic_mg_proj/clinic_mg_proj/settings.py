@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'core',
     'doctorapp'
 ]
 
@@ -79,7 +80,7 @@ DATABASES = {
         'NAME': 'clinic_mg_db',
         'USER':'root',
         'PASSWORD':'Thariq@123',
-        'HOST':'loclahost',
+        'HOST':'localhost',
         'PORT':3306
     }
 }

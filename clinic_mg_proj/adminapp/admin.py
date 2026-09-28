@@ -2,7 +2,7 @@ from django.contrib import admin
 
 # Register your models here.
 
-from .models import (
+from core.models import (
     Role,
     User,
     Department,
