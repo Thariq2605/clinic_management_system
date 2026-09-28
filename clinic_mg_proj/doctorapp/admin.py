@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import (
+from core.models import (
     Role,
     User,
     Department,
