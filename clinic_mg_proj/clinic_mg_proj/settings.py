@@ -9,8 +9,10 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os
+from dotenv import load_dotenv
 from pathlib import Path
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -39,8 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'core',
-    'doctorapp',
-    'pharmacistapp',
+    'doctorapp'
 ]
 
 MIDDLEWARE = [
@@ -75,13 +76,12 @@ WSGI_APPLICATION = 'clinic_mg_proj.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'clinic_mg_db',
         'USER':'root',
-        'PASSWORD':'1234',
+        'PASSWORD':'Thariq@123',
         'HOST':'localhost',
         'PORT':3306
     }
