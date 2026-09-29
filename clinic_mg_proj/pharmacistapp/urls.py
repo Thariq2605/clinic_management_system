@@ -7,5 +7,5 @@ router.register(r'medicines', MedicineViewSet)
 router.register(r'prescription-medicines', PrescriptionMedicineViewSet)
 
 urlpatterns = [
-    path('pharmacist/login/', PharmacistLoginView.as_view(), name='pharmacist-login'),
+    path('login/', PharmacistLoginView.as_view(), name='pharmacist-login'),
 ] + router.urls

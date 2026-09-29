@@ -12,7 +12,7 @@ from .views import (
     create_medical_record
 
 )
-
+ 
 
 urlpatterns = [
 

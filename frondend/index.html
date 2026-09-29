@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pharmacist Dashboard · Clinic Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<section id="login" class="login" hidden>
+  <form id="loginForm" class="card login-card">
+    <h1>Pharmacist sign in</h1>
+    <p class="muted">Use your clinic pharmacist account.</p>
+    <div id="loginErr" class="alert bad" hidden></div>
+    <label>Username<input name="username" required autocomplete="username"></label>
+    <label>Password<input name="password" type="password" required autocomplete="current-password"></label>
+    <button class="btn pri" type="submit">Sign in</button>
+  </form>
+</section>
+
+<div id="app" class="app" hidden>
+  <aside id="side" class="side" aria-label="Main navigation">
+    <div class="brand">Clinic<b>Rx</b></div>
+    <nav id="nav"></nav>
+    <button class="btn ghost" data-a="logout">Sign out</button>
+  </aside>
+  <div class="scrim" data-a="menu"></div>
+  <div class="content">
+    <header class="top">
+      <button class="btn ghost menu" data-a="menu" aria-label="Open menu">Menu</button>
+      <h2 id="title">Dashboard</h2>
+      <span id="who" class="muted"></span>
+    </header>
+    <main id="main" tabindex="-1"></main>
+  </div>
+</div>
+
+<dialog id="modal"></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>
