@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Consultation - CareFlow</title>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+<div class="app-container">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+        <div class="logo">
+            <div class="logo-icon">✚</div>
+            <span>CareFlow</span>
+        </div>
+
+        <nav class="sidebar-nav">
+
+            <a href="dashboard.html" class="nav-item">
+                <span>▣</span>
+                Dashboard
+            </a>
+
+            <a href="appointment.html" class="nav-item">
+                <span>▦</span>
+                Appointments
+            </a>
+
+            <a href="#" class="nav-item active">
+                <span>☑</span>
+                Consultation
+            </a>
+
+            <a href="#" class="nav-item">
+                <span>▤</span>
+                Medical History
+            </a>
+
+        </nav>
+
+        <div class="sidebar-bottom">
+
+            <button class="logout-btn" onclick="logout()">
+                <span>⇥</span>
+                Logout
+            </button>
+
+        </div>
+
+    </aside>
+
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+        <!-- TOP BAR -->
+        <header class="topbar">
+
+            <div class="search-box">
+                <span>⌕</span>
+                <input
+                    type="text"
+                    placeholder="Search..."
+                >
+            </div>
+
+            <div class="doctor-profile">
+
+                <div class="doctor-avatar">
+                    D
+                </div>
+
+                <div>
+                    <div class="doctor-name" id="doctorName">
+                        Doctor
+                    </div>
+
+                    <div class="doctor-role">
+                        Doctor
+                    </div>
+                </div>
+
+                <span class="profile-arrow">⌄</span>
+
+            </div>
+
+        </header>
+
+
+        <!-- PAGE -->
+        <section class="page-content">
+
+            <!-- BACK -->
+            <div class="back-link"
+                 onclick="goBack()">
+
+                ← Back to Patient Details
+
+            </div>
+
+
+            <!-- PAGE HEADER -->
+            <div class="page-header">
+
+                <div>
+
+                    <h1>Consultation</h1>
+
+                    <p>
+                        Enter consultation details for the patient
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <!-- PATIENT SUMMARY -->
+            <div class="consultation-patient-card">
+
+                <div class="patient-avatar-large"
+                     id="patientInitial">
+                    P
+                </div>
+
+                <div class="patient-summary">
+
+                    <h2 id="patientName">
+                        Loading...
+                    </h2>
+
+                    <p>
+                        Patient ID:
+                        <span id="patientId">-</span>
+                    </p>
+
+                </div>
+
+                <div class="token-box">
+
+                    <span>Token</span>
+
+                    <strong id="tokenNumber">
+                        -
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+            <!-- ERROR -->
+            <div id="errorMessage"
+                 class="error-message"
+                 style="display:none;">
+            </div>
+
+
+            <!-- CONSULTATION FORM -->
+            <div class="content-card">
+
+                <div class="card-header">
+
+                    <div>
+                        <h2>Consultation Details</h2>
+
+                        <p>
+                            Record the patient's current condition
+                            and diagnosis.
+                        </p>
+                    </div>
+
+                </div>
+
+
+                <form id="consultationForm">
+
+                    <!-- SYMPTOMS -->
+                    <div class="form-group">
+
+                        <label for="symptoms">
+                            Symptoms
+                        </label>
+
+                        <textarea
+                            id="symptoms"
+                            name="symptoms"
+                            rows="5"
+                            placeholder="Enter patient's symptoms..."
+                            required>
+                        </textarea>
+
+                    </div>
+
+
+                    <!-- DIAGNOSIS -->
+                    <div class="form-group">
+
+                        <label for="diagnosis">
+                            Diagnosis
+                        </label>
+
+                        <textarea
+                            id="diagnosis"
+                            name="diagnosis"
+                            rows="5"
+                            placeholder="Enter diagnosis..."
+                            required>
+                        </textarea>
+
+                    </div>
+
+
+                    <!-- NOTES -->
+                    <div class="form-group">
+
+                        <label for="notes">
+                            Notes
+                        </label>
+
+                        <textarea
+                            id="notes"
+                            name="notes"
+                            rows="5"
+                            placeholder="Enter additional notes..."
+                        ></textarea>
+
+                    </div>
+
+
+                    <!-- BUTTONS -->
+                    <div class="form-actions">
+
+                        <button
+                            type="button"
+                            class="secondary-btn"
+                            onclick="goBack()">
+
+                            Cancel
+
+                        </button>
+
+                        <button
+                            type="submit"
+                            class="primary-btn"
+                            id="saveButton">
+
+                            Save Consultation
+
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<script src="js/auth.js"></script>
+<script src="js/consultation.js"></script>
+
+</body>
+</html>
