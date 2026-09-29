@@ -1,27 +1,75 @@
-from django.contrib.auth.hashers import check_password
-
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-
-from core.models import User, Staff, Doctor, Appointment,Consultation,Prescription,PrescriptionMedicine,PrescriptionLabTest,MedicalRecord
-from .serializer import AppointmentSerializer,PatientDetailsSerializer,ConsultationSerializer,PrescriptionSerializer,PrescriptionMedicineSerializer,PrescriptionLabTestSerializer,MedicalRecordSerializer
-
-
 from datetime import date
+
+from django.contrib.auth.hashers import check_password
 from django.utils import timezone
 
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from core.models import (
+    User,
+    Staff,
+    Doctor,
+    Appointment,
     Consultation,
-    MedicalRecord
+    Prescription,
+    PrescriptionMedicine,
+    PrescriptionLabTest,
+    MedicalRecord,
 )
 
-from .serializer import MedicalRecordSerializer
+from .serializer import (
+    AppointmentSerializer,
+    PatientDetailsSerializer,
+    ConsultationSerializer,
+    PrescriptionSerializer,
+    PrescriptionMedicineSerializer,
+    PrescriptionLabTestSerializer,
+    MedicalRecordSerializer,
+)
+
+from doctorapp.permission import IsDoctor
+
+def get_authenticated_doctor(request, doctor_id):
+
+    try:
+        doctor = Doctor.objects.select_related(
+            'staff',
+            'staff__user',
+            'specialization',
+            'department'
+        ).get(
+            doctor_id=doctor_id,
+            staff__user_id=request.user.user_id,
+            staff__is_active=True,
+            is_active=True
+        )
+
+        return doctor
+
+    except Doctor.DoesNotExist:
+        return None
+
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated, IsDoctor])
 def doctor_appointments(request, doctor_id):
 
+    doctor = get_authenticated_doctor(request, doctor_id)
+
+    if not doctor:
+        return Response(
+            {
+                "error": "You are not authorized to access this doctor's appointments."
+            },
+            status=403
+        )
+
     appointments = Appointment.objects.filter(
-        doctor_id=doctor_id,
+        doctor=doctor,
         appointment_date=date.today(),
         is_active=True
     ).order_by('appointment_time')
@@ -35,6 +83,7 @@ def doctor_appointments(request, doctor_id):
 
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def doctor_login(request):
 
     username = request.data.get('username')
@@ -104,34 +153,43 @@ def doctor_login(request):
             status=404
         )
 
-    request.session['user_id'] = user.user_id
-    request.session['doctor_id'] = doctor.doctor_id
+    refresh = RefreshToken.for_user(user)
+
+    refresh['doctor_id'] = doctor.doctor_id
+    refresh['role'] = 'doctor'
+
+    access_token = refresh.access_token
 
     return Response(
-        {
-            "message": "Doctor login successful",
-            "user_id": user.user_id,
-            "doctor_id": doctor.doctor_id,
-            "doctor_name": staff.full_name,
-            "username": user.username
-        },
-        status=200
-    )
+    {
+        "message": "Doctor login successful",
+        "user_id": user.user_id,
+        "doctor_id": doctor.doctor_id,
+        "doctor_name": staff.full_name,
+        "username": user.username,
+        "access": str(access_token),
+        "refresh": str(refresh)
+    },
+    status=200
+)
 
 @api_view(['GET'])
-def doctor_dashboard(request):
+@permission_classes([IsAuthenticated, IsDoctor])
+def doctor_dashboard(request, doctor_id):
 
-    # Get logged-in doctor's ID from session
-    doctor_id = request.session.get('doctor_id')
+    doctor = get_authenticated_doctor(request, doctor_id)
 
-    if not doctor_id:
+    if not doctor:
         return Response(
             {
-                "error": "Doctor is not logged in"
+                "error": "You are not authorized to access this doctor's dashboard."
             },
-            status=401
+            status=403
         )
 
+    today = date.today()
+
+    
     # Get doctor
     try:
         doctor = Doctor.objects.select_related(
@@ -203,84 +261,18 @@ def doctor_dashboard(request):
     )
 
 @api_view(['GET'])
-def doctor_dashboard(request, doctor_id):
+@permission_classes([IsAuthenticated, IsDoctor])
+def appointment_patient_details(request, doctor_id, appointment_id):
 
-    # Find doctor
-    try:
-        doctor = Doctor.objects.select_related(
-            'staff',
-            'specialization',
-            'department'
-        ).get(
-            doctor_id=doctor_id,
-            is_active=True
-        )
+    doctor = get_authenticated_doctor(request, doctor_id)
 
-    except Doctor.DoesNotExist:
+    if not doctor:
         return Response(
             {
-                "error": "Doctor not found"
+                "error": "You are not authorized to access this doctor's appointment."
             },
-            status=404
+            status=403
         )
-
-    # Today's date
-    today = date.today()
-
-    # Get today's active appointments
-    appointments = Appointment.objects.filter(
-        doctor=doctor,
-        appointment_date=today,
-        is_active=True
-    )
-
-    # Count appointments based on status
-    total = appointments.count()
-
-    scheduled = appointments.filter(
-        status='scheduled'
-    ).count()
-
-    confirmed = appointments.filter(
-        status='confirmed'
-    ).count()
-
-    completed = appointments.filter(
-        status='completed'
-    ).count()
-
-    cancelled = appointments.filter(
-        status='cancelled'
-    ).count()
-
-    return Response(
-        {
-            "doctor": {
-                "doctor_id": doctor.doctor_id,
-                "name": doctor.staff.full_name,
-                "specialization": doctor.specialization.specialization_name,
-                "department": doctor.department.department_name,
-                "qualification": doctor.qualification,
-                "experience_years": doctor.experience_years,
-                "license_number": doctor.license_number,
-                "consultation_fee": str(doctor.consultation_fee)
-            },
-
-            "date": str(today),
-
-            "appointments": {
-                "total": total,
-                "scheduled": scheduled,
-                "confirmed": confirmed,
-                "completed": completed,
-                "cancelled": cancelled
-            }
-        },
-        status=200
-    )
-
-@api_view(['GET'])
-def appointment_patient_details(request, doctor_id, appointment_id):
 
     try:
         appointment = Appointment.objects.select_related(
@@ -288,7 +280,7 @@ def appointment_patient_details(request, doctor_id, appointment_id):
             'doctor'
         ).get(
             appointment_id=appointment_id,
-            doctor_id=doctor_id,
+            doctor=doctor,
             is_active=True
         )
 
@@ -338,7 +330,18 @@ def appointment_patient_details(request, doctor_id, appointment_id):
     )
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated, IsDoctor])
 def create_consultation(request, doctor_id, appointment_id):
+
+    doctor = get_authenticated_doctor(request, doctor_id)
+
+    if not doctor:
+        return Response(
+            {
+                "error": "You are not authorized to create a consultation for this doctor."
+            },
+            status=403
+        )
 
     # Find appointment belonging to this doctor
     try:
@@ -347,7 +350,7 @@ def create_consultation(request, doctor_id, appointment_id):
             'doctor'
         ).get(
             appointment_id=appointment_id,
-            doctor_id=doctor_id,
+            doctor=doctor,
             is_active=True
         )
 
@@ -407,7 +410,18 @@ def create_consultation(request, doctor_id, appointment_id):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated, IsDoctor])
 def create_prescription(request, doctor_id, consultation_id):
+
+    doctor = get_authenticated_doctor(request, doctor_id)
+
+    if not doctor:
+        return Response(
+            {
+                "error": "You are not authorized to create a prescription for this doctor."
+            },
+            status=403
+        )
 
     # 1. Find the consultation belonging to this doctor
     try:
@@ -417,7 +431,7 @@ def create_prescription(request, doctor_id, consultation_id):
             'doctor'
         ).get(
             consultation_id=consultation_id,
-            doctor_id=doctor_id,
+            doctor=doctor,
             is_active=True
         )
 
@@ -507,7 +521,19 @@ def create_prescription(request, doctor_id, consultation_id):
     )
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated, IsDoctor])
 def create_lab_test_request(request, doctor_id, consultation_id):
+
+
+    doctor = get_authenticated_doctor(request, doctor_id)
+
+    if not doctor:
+        return Response(
+            {
+                "error": "You are not authorized to request lab tests for this doctor."
+            },
+            status=403
+        )
 
     # 1. Find the consultation belonging to this doctor
     try:
@@ -517,7 +543,7 @@ def create_lab_test_request(request, doctor_id, consultation_id):
             'doctor'
         ).get(
             consultation_id=consultation_id,
-            doctor_id=doctor_id,
+            doctor=doctor,
             is_active=True
         )
 
@@ -586,12 +612,22 @@ def create_lab_test_request(request, doctor_id, consultation_id):
     )
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated, IsDoctor])
 def patient_medical_history(request, doctor_id, patient_id):
+    doctor = get_authenticated_doctor(request, doctor_id)
+
+    if not doctor:
+        return Response(
+            {
+                "error": "You are not authorized to access this doctor's patient history."
+            },
+            status=403
+        )
 
     # Check whether this doctor has an active appointment
     # with this patient
     appointment_exists = Appointment.objects.filter(
-        doctor_id=doctor_id,
+        doctor=doctor,
         patient_id=patient_id,
         is_active=True
     ).exists()
@@ -628,7 +664,18 @@ def patient_medical_history(request, doctor_id, patient_id):
     )
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated, IsDoctor])
 def create_medical_record(request, doctor_id, consultation_id):
+
+    doctor = get_authenticated_doctor(request, doctor_id)
+
+    if not doctor:
+        return Response(
+            {
+                "error": "You are not authorized to create a medical record for this doctor."
+            },
+            status=403
+        )
 
     # 1. Find consultation belonging to this doctor
     try:
@@ -638,7 +685,7 @@ def create_medical_record(request, doctor_id, consultation_id):
             'doctor'
         ).get(
             consultation_id=consultation_id,
-            doctor_id=doctor_id,
+            doctor=doctor,
             is_active=True
         )
 
