@@ -37,8 +37,15 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    
+    "rest_framework",
+    "rest_framework.authtoken",
+    
     'core',
-    'doctorapp'
+    'doctorapp',
+    'adminapp',
+    'receptionistapp',
+    'pharmacistapp',
 ]
 
 MIDDLEWARE = [
@@ -70,6 +77,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'clinic_mg_proj.wsgi.application'
 
+AUTH_USER_MODEL = "core.User"
+
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -79,7 +88,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'clinic_mg_db',
         'USER':'root',
-        'PASSWORD':'Thariq@123',
+        'PASSWORD':'admin123',
         'HOST':'localhost',
         'PORT':3306
     }
@@ -126,3 +135,9 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+    ],
+}
