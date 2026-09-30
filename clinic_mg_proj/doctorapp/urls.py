@@ -1,4 +1,5 @@
 from django.urls import path
+from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (
     doctor_login,
@@ -68,5 +69,11 @@ urlpatterns = [
         'consultations/<int:doctor_id>/<int:consultation_id>/medical-record/',
         create_medical_record,
         name='create-medical-record'
-),
+    ),
+
+    path(
+        'doctor/token/refresh/',
+        TokenRefreshView.as_view(),
+        name='doctor_token_refresh'
+    ),
 ]
