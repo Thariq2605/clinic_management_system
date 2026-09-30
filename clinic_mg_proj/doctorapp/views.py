@@ -1,7 +1,9 @@
 from django.contrib.auth.hashers import check_password
 
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.models import User, Staff, Doctor, Appointment,Consultation,Prescription,PrescriptionMedicine,PrescriptionLabTest,MedicalRecord
 from .serializer import AppointmentSerializer,PatientDetailsSerializer,ConsultationSerializer,PrescriptionSerializer,PrescriptionMedicineSerializer,PrescriptionLabTestSerializer,MedicalRecordSerializer
@@ -15,9 +17,12 @@ from core.models import (
     MedicalRecord
 )
 
+from .permission import IsDoctor
+
 from .serializer import MedicalRecordSerializer
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated, IsDoctor])
 def doctor_appointments(request, doctor_id):
 
     appointments = Appointment.objects.filter(
@@ -35,6 +40,7 @@ def doctor_appointments(request, doctor_id):
 
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def doctor_login(request):
 
     username = request.data.get('username')
@@ -104,6 +110,10 @@ def doctor_login(request):
             status=404
         )
 
+    refresh = RefreshToken.for_user(user)
+    refresh['doctor_id'] = doctor.doctor_id
+    refresh['role'] = 'doctor'
+
     request.session['user_id'] = user.user_id
     request.session['doctor_id'] = doctor.doctor_id
 
@@ -113,7 +123,9 @@ def doctor_login(request):
             "user_id": user.user_id,
             "doctor_id": doctor.doctor_id,
             "doctor_name": staff.full_name,
-            "username": user.username
+            "username": user.username,
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
         },
         status=200
     )
@@ -203,6 +215,7 @@ def doctor_dashboard(request):
     )
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated, IsDoctor])
 def doctor_dashboard(request, doctor_id):
 
     # Find doctor
@@ -280,6 +293,7 @@ def doctor_dashboard(request, doctor_id):
     )
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated, IsDoctor])
 def appointment_patient_details(request, doctor_id, appointment_id):
 
     try:
@@ -338,6 +352,7 @@ def appointment_patient_details(request, doctor_id, appointment_id):
     )
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated, IsDoctor])
 def create_consultation(request, doctor_id, appointment_id):
 
     # Find appointment belonging to this doctor
@@ -407,6 +422,7 @@ def create_consultation(request, doctor_id, appointment_id):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated, IsDoctor])
 def create_prescription(request, doctor_id, consultation_id):
 
     # 1. Find the consultation belonging to this doctor
@@ -507,6 +523,7 @@ def create_prescription(request, doctor_id, consultation_id):
     )
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated, IsDoctor])
 def create_lab_test_request(request, doctor_id, consultation_id):
 
     # 1. Find the consultation belonging to this doctor
@@ -586,6 +603,7 @@ def create_lab_test_request(request, doctor_id, consultation_id):
     )
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated, IsDoctor])
 def patient_medical_history(request, doctor_id, patient_id):
 
     # Check whether this doctor has an active appointment
@@ -628,6 +646,7 @@ def patient_medical_history(request, doctor_id, patient_id):
     )
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated, IsDoctor])
 def create_medical_record(request, doctor_id, consultation_id):
 
     # 1. Find consultation belonging to this doctor

@@ -29,6 +29,22 @@ def create_appointment(*, patient, department_id, doctor_id, appointment_date,
     if appointment_date == now.date() and appointment_time <= now.time().replace(tzinfo=None):
         raise AppointmentRuleError("Appointment time must be in the future.")
 
+    # Prevent duplicate booking for the same doctor at the same date and time
+    if Appointment.objects.filter(
+        doctor=doctor,
+        appointment_date=appointment_date,
+        appointment_time=appointment_time,
+    ).exclude(status="cancelled").exists():
+        raise AppointmentRuleError("Doctor is already booked for this appointment time.", 409)
+
+    # Prevent duplicate booking for the same patient at the same date and time
+    if Appointment.objects.filter(
+        patient=patient,
+        appointment_date=appointment_date,
+        appointment_time=appointment_time,
+    ).exclude(status="cancelled").exists():
+        raise AppointmentRuleError("Patient already has an appointment at this date and time.", 409)
+
     used = set(Appointment.objects.filter(
         doctor=doctor, appointment_date=appointment_date
     ).values_list("token_number", flat=True))
