@@ -27,7 +27,7 @@
 
     <!-- ================= SIDEBAR ================= -->
 
-    <aside class="sidebar">
+    <aside id="sidebar" class="sidebar">
 
         <div class="logo">
 
@@ -190,11 +190,17 @@
                     </h1>
 
                     <p>
-                        Create a prescription for the patient
+                        Create a prescription from a consultation or view saved prescriptions
                     </p>
 
                 </div>
 
+            </div>
+
+            <div id="prescriptionHome" class="content-card" style="display:none;">
+                <div class="card-header"><div><h2>Select a Consultation</h2><p>Choose a consultation to create its prescription.</p></div>
+                  <button class="secondary-btn" onclick="window.location.href='prescription.html?mode=history'">View Prescription History</button></div>
+                <div id="consultationOptions"></div>
             </div>
 
 
@@ -254,11 +260,16 @@
                 style="display:none;"
             ></div>
 
+            <div id="prescriptionHistory" class="content-card" style="display:none;">
+                <div class="card-header"><div><h2>Prescription History</h2><p>Your previously created prescriptions</p></div><button class="secondary-btn" onclick="window.location.href='prescription.html'">Back to Prescriptions</button></div>
+                <div id="prescriptionHistoryList"></div>
+            </div>
+
 
 
             <!-- ================= PRESCRIPTION FORM ================= -->
 
-            <div class="content-card">
+            <div id="prescriptionFormCard" class="content-card">
 
 
                 <div class="card-header">
@@ -298,12 +309,9 @@
 
                             </label>
 
-                            <input
-                                type="number"
-                                id="medicineId"
-                                placeholder="Enter medicine ID"
-                                required
-                            >
+                            <select id="medicineId" required>
+                                <option value="">Select medicine</option>
+                            </select>
 
                         </div>
 
@@ -475,6 +483,7 @@
 <script src="js/auth.js"></script>
 
 <script src="js/prescription.js"></script>
+<script src="js/sidebar.js"></script>
 
 </body>
 

@@ -45,6 +45,8 @@ const saveRecordButton =
     document.getElementById(
         "saveRecordButton"
     );
+const recordHistory = document.getElementById("recordHistory");
+const recordHistoryList = document.getElementById("recordHistoryList");
 
 
 /* ==============================
@@ -85,12 +87,49 @@ if (consultationId) {
    CHECK INFORMATION
 ============================== */
 
-if (!doctorId || !consultationId) {
+if (!doctorId) {
+    showError("Doctor information is missing. Please log in again.");
+} else if (!consultationId) {
+    document.querySelector(".record-patient-card").style.display = "none";
+    document.querySelector(".page-header p").textContent = "Previous medical records";
+    document.querySelector(".content-card:not(#recordHistory)").style.display = "none";
+    recordHistory.style.display = "block";
+    loadMedicalRecords();
+} else {
+    loadConsultationContext();
+}
 
-    showError(
-        "Invalid consultation information."
-    );
+async function authenticatedJson(url, retry) {
+    const response = await fetch(url, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+    if (response.status === 401 && await refreshAccessToken()) return authenticatedJson(url, retry);
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Request failed (${response.status}).`);
+    }
+    return response.json();
+}
 
+async function loadMedicalRecords() {
+    try {
+        const records = await authenticatedJson(`${API_BASE_URL}/doctor/medical-records/${doctorId}/`);
+        if (!records.length) {
+            recordHistoryList.textContent = "No medical records found.";
+            return;
+        }
+        recordHistoryList.innerHTML = records.map(record => `<div class="history-item"><strong>Record #${record.record_id}</strong> · Patient ${record.patient_name || `#${record.patient}`} · Consultation #${record.consultation}<p>${record.diagnosis || "No diagnosis"}</p><p>${record.medical_notes || "No notes"}</p><small>${record.created_at ? new Date(record.created_at).toLocaleDateString("en-IN") : "-"}</small></div>`).join("");
+    } catch (error) { showError(error.message); }
+}
+
+async function loadConsultationContext() {
+    try {
+        const consultations = await authenticatedJson(`${API_BASE_URL}/doctor/consultations/${doctorId}/`);
+        const consultation = consultations.find(item => String(item.consultation_id) === String(consultationId));
+        if (!consultation) return;
+        const patient = consultation.patientdetails || {};
+        document.getElementById("patientName").textContent = patient.full_name || "Patient";
+        document.getElementById("patientId").textContent = patient.patient_id ?? "-";
+        document.getElementById("patientInitial").textContent = getInitial(patient.full_name);
+    } catch (error) { showError(error.message); }
 }
 
 

@@ -1,6 +1,70 @@
 const API_BASE_URL =
     "http://127.0.0.1:8000";
 
+async function loadLabTests() {
+
+    const testSelect = document.getElementById("testName");
+
+    if (!testSelect) {
+        return;
+    }
+
+    const accessToken = getAccessToken();
+
+    if (!accessToken) {
+        window.location.href = "login.html";
+        return;
+    }
+
+    try {
+
+        const response = await fetch(
+            `${API_BASE_URL}/doctor/lab-tests/`,
+            {
+                method: "GET",
+                headers: {
+                    "Authorization": `Bearer ${accessToken}`,
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+
+        if (response.status === 401) {
+            if (await refreshAccessToken()) return loadLabTests();
+            logout();
+            return;
+        }
+
+        if (!response.ok) {
+            throw new Error("Failed to load laboratory tests");
+        }
+
+        const tests = await response.json();
+
+        console.log("Lab Tests API Response:", tests);
+
+        testSelect.innerHTML =
+            `<option value="">Select laboratory test</option>`;
+
+        tests.forEach(function (test) {
+
+            const option = document.createElement("option");
+
+            option.value = test.test_id;
+
+            option.textContent = test.test_name;
+
+            testSelect.appendChild(option);
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Lab test loading error:",
+            error
+        );
+    }
+}
 
 requireLogin();
 
@@ -21,6 +85,7 @@ const consultationId =
 
 const prescriptionId =
     params.get("prescription_id");
+const requestedLabTestId = params.get("lab_test_id");
 
 
 const doctorId =
@@ -94,6 +159,78 @@ if (doctorName) {
 
 }
 
+if (!doctorId) {
+    showError("Doctor information is missing. Please log in again.");
+} else if (params.get("mode") === "history" || params.get("mode") === "view" || (requestedLabTestId && !consultationId)) {
+    document.querySelector(".lab-patient-card").style.display = "none";
+    document.querySelector(".page-header p").textContent = "Previously requested laboratory tests";
+    document.getElementById("labTestHome").style.display = "none";
+    document.getElementById("labTestFormCard").style.display = "none";
+    document.getElementById("labTestHistory").style.display = "block";
+    loadLabTestHistory();
+} else if (!consultationId) {
+    document.querySelector(".lab-patient-card").style.display = "none";
+    document.querySelector(".page-header p").textContent = "Select a prescription to create a lab test request";
+    document.getElementById("labTestFormCard").style.display = "none";
+    document.getElementById("labTestHome").style.display = "block";
+    loadLabPrescriptionOptions();
+} else {
+    loadConsultationContext();
+}
+
+async function loadLabPrescriptionOptions() {
+    const target = document.getElementById("prescriptionOptions");
+    try {
+        const response = await fetch(`${API_BASE_URL}/doctor/prescriptions/${doctorId}/`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+        if (response.status === 401 && await refreshAccessToken()) return loadLabPrescriptionOptions();
+        if (!response.ok) throw new Error(`Unable to load prescriptions (${response.status}).`);
+        const prescriptions = await response.json();
+        if (!prescriptions.length) { target.innerHTML = `<div class="empty-state"><h3>No prescriptions available</h3><p>Create a prescription from a consultation before requesting lab tests.</p></div>`; return; }
+        target.innerHTML = prescriptions.map(item => `<div class="consultation-row"><div class="consultation-patient"><div class="patient-info"><h3>${escapeHtml(item.patient_name || `Patient #${item.patient}`)}</h3><span>Consultation #${item.consultation} · Prescription #${item.prescription_id}</span></div></div><div class="consultation-column"><span class="column-label">Date</span><strong>${escapeHtml(item.prescription_date)}</strong></div><button class="primary-btn" onclick="createLabRequest(${item.consultation}, ${item.prescription_id})">Request Lab Tests</button></div>`).join("");
+    } catch (error) { target.innerHTML = `<div class="error-message">${escapeHtml(error.message)}</div>`; }
+}
+
+function createLabRequest(consultation, prescription) {
+    window.location.href = `labtest.html?consultation_id=${encodeURIComponent(consultation)}&prescription_id=${encodeURIComponent(prescription)}`;
+}
+
+function escapeHtml(value) { return String(value ?? "-").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char])); }
+
+async function loadLabTestHistory() {
+    const target = document.getElementById("labTestHistoryList");
+    try {
+        const response = await fetch(`${API_BASE_URL}/doctor/lab-test-requests/${doctorId}/`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+        if (response.status === 401 && await refreshAccessToken()) return loadLabTestHistory();
+        if (!response.ok) throw new Error(`Unable to load lab test requests (${response.status}).`);
+        const list = await response.json();
+        if (!list.length) { target.textContent = "No lab test requests found."; return; }
+        const selected = requestedLabTestId
+            ? list.filter(item => String(item.prescription_lab_test_id) === requestedLabTestId)
+            : consultationId
+                ? list.filter(item => String(item.consultation_id) === String(consultationId))
+                : prescriptionId
+                    ? list.filter(item => String(item.prescription) === String(prescriptionId))
+                    : list;
+        if (requestedLabTestId && !selected.length) { target.textContent = "Lab test request not found."; return; }
+        target.innerHTML = selected.map(item => `<div class="history-item"><strong>${item.test_name || `Test #${item.test}`}</strong> · Patient ${item.patient_name || `#${item.patient_id}`} · Consultation #${item.consultation_id}<p>${item.instructions || "No instructions"}</p>${!requestedLabTestId ? `<button class="view-button" onclick="window.location.href='labtest.html?lab_test_id=${encodeURIComponent(item.prescription_lab_test_id)}&mode=view'">View</button>` : ""}</div>`).join("");
+    } catch (error) { showError(error.message); }
+}
+
+async function loadConsultationContext() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/doctor/consultations/${doctorId}/`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+        if (response.status === 401 && await refreshAccessToken()) return loadConsultationContext();
+        if (!response.ok) return;
+        const list = await response.json();
+        const item = list.find(row => String(row.consultation_id) === String(consultationId));
+        if (!item) return;
+        const patient = item.patientdetails || {};
+        document.getElementById("patientName").textContent = patient.full_name || "Patient";
+        document.getElementById("patientId").textContent = patient.patient_id ?? "-";
+        document.getElementById("patientInitial").textContent = getInitial(patient.full_name);
+    } catch (error) { console.error("Consultation context error:", error); }
+}
+
 
 /* ==============================
    CONSULTATION ID
@@ -153,9 +290,8 @@ addTestButton.addEventListener(
 
 
         const test = {
-
-            test_name:
-                testName,
+            test: Number(testName),
+            test_name: testNameInput.selectedOptions[0]?.textContent || testName,
 
             priority:
                 priority,
@@ -334,10 +470,6 @@ async function saveLabTests() {
     }
 
 
-    const accessToken =
-        getAccessToken();
-
-
     saveLabTestButton.disabled =
         true;
 
@@ -348,93 +480,22 @@ async function saveLabTests() {
 
     try {
 
-        const response =
-            await fetch(
-
-                `${API_BASE_URL}/doctor/consultations/${doctorId}/${consultationId}/lab-test/`,
-
-                {
-
+        for (const labTest of labTests) {
+            let response = await fetch(`${API_BASE_URL}/doctor/consultations/${doctorId}/${consultationId}/lab-test/`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${getAccessToken()}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ test: labTest.test, instructions: labTest.instructions })
+            });
+            if (response.status === 401 && await refreshAccessToken()) {
+                response = await fetch(`${API_BASE_URL}/doctor/consultations/${doctorId}/${consultationId}/lab-test/`, {
                     method: "POST",
-
-                    headers: {
-
-                        "Authorization":
-                            `Bearer ${accessToken}`,
-
-                        "Content-Type":
-                            "application/json"
-
-                    },
-
-                    body:
-                        JSON.stringify({
-
-                            tests:
-                                labTests
-
-                        })
-
-                }
-
-            );
-
-
-        /* ==========================
-           TOKEN EXPIRED
-        ========================== */
-
-        if (response.status === 401) {
-
-            const refreshed =
-                await refreshAccessToken();
-
-
-            if (refreshed) {
-
-                saveLabTestButton.disabled =
-                    false;
-
-                saveLabTestButton.textContent =
-                    "Save Lab Test Request";
-
-
-                return saveLabTests();
-
+                    headers: { Authorization: `Bearer ${getAccessToken()}`, "Content-Type": "application/json" },
+                    body: JSON.stringify({ test: labTest.test, instructions: labTest.instructions })
+                });
             }
-
-
-            logout();
-
-            return;
-
-        }
-
-
-        const data =
-            await response.json();
-
-
-        console.log(
-            "Lab test response:",
-            data
-        );
-
-
-        if (!response.ok) {
-
-            showError(
-
-                data.error ||
-
-                data.detail ||
-
-                "Unable to save laboratory test request."
-
-            );
-
-            return;
-
+            if (response.status === 401) { logout(); return; }
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || data.detail || `Unable to save laboratory test request (${response.status}).`);
         }
 
 
@@ -513,8 +574,9 @@ function clearError() {
 ============================== */
 
 function goBack() {
-
-    window.location.href =
-        `consultation.html?appointment_id=${localStorage.getItem("appointment_id") || ""}`;
-
+    window.location.href = consultationId ? `consultation.html?consultation_id=${consultationId}&mode=view` : "consultation.html";
 }
+
+document.addEventListener("DOMContentLoaded", function () {
+    if (consultationId) loadLabTests();
+});

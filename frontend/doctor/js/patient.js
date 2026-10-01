@@ -7,16 +7,32 @@ requireLogin();
 /* GET IDS FROM URL               */
 /* ============================= */
 
-const params =
-    new URLSearchParams(
-        window.location.search
-    );
+const params = new URLSearchParams(window.location.search);
 
-const appointmentId =
-    params.get("appointment_id");
+const appointmentId = params.get("appointment_id");
+const from = params.get("from");
+if (appointmentId && !["null", "undefined"].includes(appointmentId)) {
+    localStorage.setItem("current_appointment_id", appointmentId);
+}
 
 const doctorId =
     localStorage.getItem("doctor_id");
+
+
+/* ============================= */
+/* VALIDATE APPOINTMENT ID        */
+/* ============================= */
+
+if (
+    !appointmentId ||
+    appointmentId === "null" ||
+    appointmentId === "undefined"
+) {
+    console.error(
+        "Invalid appointment ID:",
+        appointmentId
+    );
+}
 
 
 /* ============================= */
@@ -53,6 +69,36 @@ if (doctorName) {
     ).textContent = doctorName;
 }
 
+function setupBackButton() {
+
+    const backText = document.getElementById("backText");
+
+    if (!backText) {
+        return;
+    }
+
+    if (from === "patients") {
+        backText.textContent = "Back to Patients";
+    } else {
+        backText.textContent = "Back to Appointments";
+    }
+}
+
+
+async function readJsonResponse(response) {
+
+    const contentType =
+        response.headers.get("content-type") || "";
+
+    if (!contentType.includes("application/json")) {
+
+        throw new Error(
+            `Server returned an unexpected response (HTTP ${response.status}).`
+        );
+    }
+
+    return await response.json();
+}
 
 /* ============================= */
 /* LOAD PATIENT                   */
@@ -60,7 +106,12 @@ if (doctorName) {
 
 async function loadPatient() {
 
-    if (!doctorId || !appointmentId) {
+    if (
+        !doctorId ||
+        !appointmentId ||
+        appointmentId === "null" ||
+        appointmentId === "undefined"
+    ) {
 
         showError(
             "Invalid appointment information."
@@ -121,7 +172,7 @@ async function loadPatient() {
         if (response.status === 403) {
 
             const data =
-                await response.json();
+                await readJsonResponse(response);
 
             showRestricted(
                 data.error ||
@@ -139,7 +190,7 @@ async function loadPatient() {
         if (response.status === 404) {
 
             const data =
-                await response.json();
+                await readJsonResponse(response);
 
             showError(
                 data.error ||
@@ -163,7 +214,7 @@ async function loadPatient() {
 
 
         const data =
-            await response.json();
+            await readJsonResponse(response);
 
 
         console.log(
@@ -365,8 +416,12 @@ function showError(message) {
 
 function goBack() {
 
-    window.location.href =
-        "appointment.html";
+    if (from === "patients") {
+        window.location.href = "patients.html";
+        return;
+    }
+
+    window.location.href = "appointment.html";
 }
 
 
@@ -375,6 +430,10 @@ function goBack() {
 /* ============================= */
 
 function startConsultation() {
+
+    if (appointmentId && !["null", "undefined"].includes(appointmentId)) {
+        localStorage.setItem("current_appointment_id", appointmentId);
+    }
 
     window.location.href =
         `consultation.html?appointment_id=${appointmentId}`;
@@ -386,3 +445,4 @@ function startConsultation() {
 /* ============================= */
 
 loadPatient();
+setupBackButton();

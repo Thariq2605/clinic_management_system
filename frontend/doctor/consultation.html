@@ -14,7 +14,7 @@
 <div class="app-container">
 
     <!-- SIDEBAR -->
-    <aside class="sidebar">
+    <aside id="sidebar" class="sidebar">
 
         <div class="logo">
             <div class="logo-icon">✚</div>
@@ -96,6 +96,55 @@
 
         <!-- PAGE -->
         <section class="page-content">
+
+
+            <!-- CONSULTATION MODULE HOME -->
+<div id="consultationHomeView" style="display:none;">
+    <div class="page-header"><div><h1>Consultation</h1><p>Select today's appointment to begin a consultation</p></div>
+      <button class="secondary-btn" onclick="window.location.href='consultation.html?mode=history'">View Consultation History</button></div>
+    <div class="content-card"><div id="availableAppointments"><div class="loading-state">Loading today's appointments...</div></div></div>
+</div>
+
+            <!-- CONSULTATION HISTORY -->
+<div id="consultationListView" style="display: none;">
+
+    <div class="page-header">
+
+        <div>
+            <h1>Consultations</h1>
+
+            <p>Review previous patient consultations</p>
+        </div>
+        <button class="secondary-btn" onclick="window.location.href='consultation.html'">Create Consultation</button>
+
+    </div>
+
+    <div class="content-card">
+
+        <div class="card-header">
+
+            <div>
+                <h2>Consultation History</h2>
+
+                <p>
+                    Previous consultations
+                </p>
+            </div>
+
+        </div>
+
+        <div id="consultationList">
+
+            <div class="loading-state">
+                Loading consultations...
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+            <div id="consultationCreateView">
 
             <!-- BACK -->
             <div class="back-link"
@@ -262,6 +311,8 @@
 
             </div>
 
+            </div>
+
         </section>
 
     </main>
@@ -271,6 +322,7 @@
 
 <script src="js/auth.js"></script>
 <script src="js/consultation.js"></script>
+<script src="js/sidebar.js"></script>
 
 </body>
 </html>

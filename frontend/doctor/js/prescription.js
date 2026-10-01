@@ -1,6 +1,76 @@
 const API_BASE_URL =
     "http://127.0.0.1:8000";
 
+async function loadMedicines() {
+
+    const medicineSelect = document.getElementById("medicineId");
+
+    if (!medicineSelect) {
+        return;
+    }
+
+    const token = getAccessToken();
+
+    if (!token) {
+        window.location.href = "login.html";
+        return;
+    }
+
+    try {
+
+        const response = await fetch(
+            `${API_BASE_URL}/doctor/medicines/`,
+            {
+                method: "GET",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+
+        if (response.status === 401) {
+            if (await refreshAccessToken()) return loadMedicines();
+            logout();
+            return;
+        }
+
+        if (!response.ok) {
+            throw new Error("Failed to load medicines");
+        }
+
+        const medicines = await response.json();
+
+        medicineSelect.innerHTML =
+            `<option value="">Select medicine</option>`;
+
+        medicines.forEach(function (medicine) {
+
+            const option = document.createElement("option");
+
+            option.value = medicine.medicine_id;
+
+            option.textContent =
+                `${medicine.medicine_name} - ${medicine.manufacturer}`;
+
+            if (medicine.quantity <= 0) {
+                option.disabled = true;
+                option.textContent += " - Out of stock";
+            }
+
+            medicineSelect.appendChild(option);
+        });
+
+    } catch (error) {
+
+        console.error(
+            "Medicine loading error:",
+            error
+        );
+
+    }
+}
+
 
 requireLogin();
 
@@ -17,6 +87,8 @@ const params =
 
 const consultationId =
     params.get("consultation_id");
+const pageMode = params.get("mode");
+const requestedPrescriptionId = params.get("prescription_id");
 
 
 const doctorId =
@@ -104,12 +176,75 @@ let medicines = [];
    CHECK URL
 ============================== */
 
-if (!doctorId || !consultationId) {
+if (!doctorId) {
+    showError("Doctor information is missing. Please log in again.");
+} else if ((pageMode === "history" && !consultationId) || pageMode === "view" || (requestedPrescriptionId && !consultationId)) {
+    document.querySelector(".prescription-patient-card").style.display = "none";
+    document.querySelector(".page-header p").textContent = "Previously created prescriptions";
+    document.getElementById("prescriptionFormCard").style.display = "none";
+    document.getElementById("prescriptionHistory").style.display = "block";
+    loadPrescriptionHistory();
+} else if (!consultationId) {
+    document.querySelector(".prescription-patient-card").style.display = "none";
+    document.getElementById("prescriptionFormCard").style.display = "none";
+    document.getElementById("prescriptionHome").style.display = "block";
+    loadPrescriptionOptions();
+} else {
+    loadConsultationContext();
+}
 
-    showError(
-        "Invalid consultation information."
-    );
+async function loadPrescriptionOptions() {
+    const target = document.getElementById("consultationOptions");
+    try {
+        const headers = { Authorization: `Bearer ${getAccessToken()}` };
+        let [consultationResponse, prescriptionResponse] = await Promise.all([
+            fetch(`${API_BASE_URL}/doctor/consultations/${doctorId}/`, { headers }),
+            fetch(`${API_BASE_URL}/doctor/prescriptions/${doctorId}/`, { headers })
+        ]);
+        if ((consultationResponse.status === 401 || prescriptionResponse.status === 401) && await refreshAccessToken()) return loadPrescriptionOptions();
+        if (!consultationResponse.ok || !prescriptionResponse.ok) throw new Error("Unable to load consultation information.");
+        const [consultations, prescriptions] = await Promise.all([consultationResponse.json(), prescriptionResponse.json()]);
+        const existing = new Set(prescriptions.map(item => String(item.consultation)));
+        const available = consultations.filter(item => !existing.has(String(item.consultation_id)));
+        if (!available.length) { target.innerHTML = `<div class="empty-state"><h3>No consultations need a prescription</h3><p>All consultations have a prescription, or none have been recorded yet.</p></div>`; return; }
+        target.innerHTML = available.map(item => { const patient = item.patientdetails || {}; return `<div class="consultation-row"><div class="consultation-patient"><div class="patient-info"><h3>${escapeHtml(patient.full_name || "Patient")}</h3><span>Patient ID: ${escapeHtml(patient.patient_id)} · Consultation #${item.consultation_id}</span></div></div><div class="consultation-column"><span class="column-label">Date</span><strong>${escapeHtml(item.consultation_date)}</strong></div><div class="consultation-column diagnosis-column"><span class="column-label">Diagnosis</span><strong>${escapeHtml(item.diagnosis)}</strong></div><button class="primary-btn" onclick="createPrescriptionFor(${item.consultation_id})">Create Prescription</button></div>`; }).join("");
+    } catch (error) { target.innerHTML = `<div class="error-message">${escapeHtml(error.message)}</div>`; }
+}
 
+function createPrescriptionFor(id) { window.location.href = `prescription.html?consultation_id=${encodeURIComponent(id)}`; }
+function escapeHtml(value) { return String(value ?? "-").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char])); }
+
+async function loadPrescriptionHistory() {
+    const target = document.getElementById("prescriptionHistoryList");
+    try {
+        const response = await fetch(`${API_BASE_URL}/doctor/prescriptions/${doctorId}/`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+        if (response.status === 401 && await refreshAccessToken()) return loadPrescriptionHistory();
+        if (!response.ok) throw new Error(`Unable to load prescriptions (${response.status}).`);
+        const list = await response.json();
+        if (!list.length) { target.textContent = "No prescriptions found."; return; }
+        const selected = requestedPrescriptionId
+            ? list.filter(item => String(item.prescription_id) === requestedPrescriptionId)
+            : consultationId
+                ? list.filter(item => String(item.consultation) === String(consultationId))
+                : list;
+        if (requestedPrescriptionId && !selected.length) { target.textContent = "Prescription not found."; return; }
+        target.innerHTML = selected.map(item => `<div class="history-item"><strong>Prescription #${item.prescription_id}</strong> · Patient ${item.patient_name || `#${item.patient}`} · Consultation #${item.consultation} · ${item.prescription_date}<ul>${(item.medicines || []).map(m => `<li>${m.medicine_name || `Medicine #${m.medicine}`} — ${m.dosage}; ${m.frequency}; ${m.duration} days</li>`).join("")}</ul>${!requestedPrescriptionId ? `<button class="view-button" onclick="window.location.href='prescription.html?prescription_id=${encodeURIComponent(item.prescription_id)}&mode=view'">View</button>` : ""}</div>`).join("");
+    } catch (error) { showError(error.message); }
+}
+
+async function loadConsultationContext() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/doctor/consultations/${doctorId}/`, { headers: { Authorization: `Bearer ${getAccessToken()}` } });
+        if (response.status === 401 && await refreshAccessToken()) return loadConsultationContext();
+        if (!response.ok) return;
+        const list = await response.json();
+        const item = list.find(row => String(row.consultation_id) === String(consultationId));
+        if (!item) return;
+        const patient = item.patientdetails || {};
+        document.getElementById("patientName").textContent = patient.full_name || "Patient";
+        document.getElementById("patientId").textContent = patient.patient_id ?? "-";
+        document.getElementById("patientInitial").textContent = getInitial(patient.full_name);
+    } catch (error) { console.error("Consultation context error:", error); }
 }
 
 
@@ -169,8 +304,11 @@ addMedicineButton.addEventListener(
 
         const medicine = {
 
-            medicine_id:
+            medicine:
                 Number(medicineId),
+
+            medicine_name:
+                document.getElementById("medicineId").selectedOptions[0]?.textContent || `Medicine #${medicineId}`,
 
             dosage:
                 dosage,
@@ -249,8 +387,7 @@ function displayMedicines() {
 
                     <div class="medicine-name">
 
-                        Medicine ID:
-                        ${medicine.medicine_id}
+                        ${medicine.medicine_name || `Medicine #${medicine.medicine}`}
 
                     </div>
 
@@ -548,8 +685,9 @@ function clearError() {
 ============================== */
 
 function goBack() {
-
-    window.location.href =
-        `consultation.html?appointment_id=${localStorage.getItem("appointment_id") || ""}`;
-
+    window.location.href = consultationId ? `consultation.html?consultation_id=${consultationId}&mode=view` : "consultation.html";
 }
+
+document.addEventListener("DOMContentLoaded", function () {
+    if (consultationId) loadMedicines();
+});

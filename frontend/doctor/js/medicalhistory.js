@@ -71,16 +71,10 @@ if (doctorName) {
    CHECK PATIENT
 ============================== */
 
-if (!doctorId || !patientId) {
-
-    showError(
-        "Invalid patient information."
-    );
-
+if (!doctorId) {
+    showError("Doctor information is missing. Please log in again.");
 } else {
-
     loadMedicalHistory();
-
 }
 
 
@@ -99,7 +93,7 @@ async function loadMedicalHistory() {
         const response =
             await fetch(
 
-                `${API_BASE_URL}/doctor/patients/${doctorId}/${patientId}/history/`,
+                `${API_BASE_URL}/doctor/history/${doctorId}/${patientId ? `?patient_id=${encodeURIComponent(patientId)}` : ""}`,
 
                 {
 
@@ -221,21 +215,11 @@ function displayHistory(data) {
        response structures.
     */
 
-    const patient =
-        data.patient || {};
-
-
-    const consultations =
-        data.consultations ||
-        data.consultation_history ||
-        data.history ||
-        [];
-
-
-    const prescriptions =
-        data.prescriptions ||
-        data.prescription_history ||
-        [];
+    const records = data.medical_history || [];
+    const consultations = data.consultations || [];
+    const prescriptions = data.prescriptions || [];
+    const labTests = data.lab_tests || [];
+    const patient = records[0] || consultations[0]?.patientdetails || prescriptions[0] || labTests[0] || {};
 
 
     /* ==========================
@@ -245,24 +229,20 @@ function displayHistory(data) {
     document.getElementById(
         "patientName"
     ).textContent =
-        patient.full_name ||
-        data.patient_name ||
-        "-";
+        patient.patient_name || patient.full_name || (patientId ? "Patient Medical History" : "All Patient Histories");
 
 
     document.getElementById(
         "patientId"
     ).textContent =
-        patient.patient_id ||
-        patientId;
+        patient.patient ?? patient.patient_id ?? patientId ?? "-";
 
 
     document.getElementById(
         "patientInitial"
     ).textContent =
         getInitial(
-            patient.full_name ||
-            data.patient_name
+            patient.patient_name || patient.full_name
         );
 
 
@@ -270,18 +250,16 @@ function displayHistory(data) {
        CONSULTATIONS
     ========================== */
 
-    displayConsultations(
-        consultations
-    );
+    displayConsultations(consultations);
 
 
     /* ==========================
        PRESCRIPTIONS
     ========================== */
 
-    displayPrescriptions(
-        prescriptions
-    );
+    displayMedicalRecords(records);
+    displayPrescriptions(prescriptions);
+    displayLabTests(labTests);
 
 }
 
@@ -334,11 +312,7 @@ function displayConsultations(
                 "history-item";
 
 
-            const date =
-                consultation.consultation_date ||
-                consultation.date ||
-                consultation.created_at ||
-                "-";
+            const date = consultation.consultation_date || "-";
 
 
             const diagnosis =
@@ -346,9 +320,7 @@ function displayConsultations(
                 "-";
 
 
-            const symptoms =
-                consultation.symptoms ||
-                "-";
+            const symptoms = consultation.symptoms || "-";
 
 
             const notes =
@@ -361,7 +333,7 @@ function displayConsultations(
                 <div class="history-item-header">
 
                     <strong>
-                        Consultation
+                        Consultation #${consultation.consultation_id ?? "-"} · ${consultation.patientdetails?.full_name || "Patient"} (#${consultation.patientdetails?.patient_id ?? "-"})
                     </strong>
 
                     <span class="history-date">
@@ -375,7 +347,7 @@ function displayConsultations(
 
                 <div class="history-label">
 
-                    Symptoms
+                    Consultation
 
                 </div>
 
@@ -423,6 +395,36 @@ function displayConsultations(
 
 }
 
+
+function displayMedicalRecords(records) {
+    const container = document.getElementById("medicalRecordHistory");
+    container.innerHTML = "";
+    if (!records.length) {
+        container.innerHTML = `<div class="history-empty">No separate medical records have been saved.</div>`;
+        return;
+    }
+    records.forEach(record => {
+        const item = document.createElement("div");
+        item.className = "history-item";
+        item.innerHTML = `<div class="history-item-header"><strong>Record #${record.record_id} · ${record.patient_name || `Patient #${record.patient}`}</strong><span class="history-date">${formatDate(record.created_at)}</span></div><div class="history-label">Consultation #${record.consultation}</div><div class="history-label">Diagnosis</div><div class="history-value">${record.diagnosis || "-"}</div><div class="history-label">Notes</div><div class="history-value">${record.medical_notes || "-"}</div>`;
+        container.appendChild(item);
+    });
+}
+
+function displayLabTests(requests) {
+    const container = document.getElementById("labTestHistory");
+    container.innerHTML = "";
+    if (!requests.length) {
+        container.innerHTML = `<div class="history-empty">No lab tests have been requested.</div>`;
+        return;
+    }
+    requests.forEach(request => {
+        const item = document.createElement("div");
+        item.className = "history-item";
+        item.innerHTML = `<div class="history-item-header"><strong>${request.test_name || `Test #${request.test}`} · ${request.patient_name || `Patient #${request.patient_id}`}</strong><span>Consultation #${request.consultation_id}</span></div><div class="history-value">${request.instructions || "No instructions"}</div>`;
+        container.appendChild(item);
+    });
+}
 
 /* ==============================
    PRESCRIPTIONS
@@ -573,6 +575,8 @@ function displayPrescriptions(
 
                 </div>
 
+                <div>Patient: ${prescription.patient_name || `#${prescription.patient}`} · Consultation #${prescription.consultation}</div>
+
 
                 ${medicineHTML}
 
@@ -659,4 +663,20 @@ function goBack() {
     window.location.href =
         "appointment.html";
 
+}
+
+async function loadPrescriptionHistory() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/doctor/prescriptions/${doctorId}/`, {
+            headers: { Authorization: `Bearer ${getAccessToken()}` }
+        });
+        if (response.status === 401 && await refreshAccessToken()) return loadPrescriptionHistory();
+        if (!response.ok) throw new Error("Unable to load prescription history.");
+        let prescriptions = await response.json();
+        if (patientId) prescriptions = prescriptions.filter(item => String(item.patient) === String(patientId));
+        displayPrescriptions(prescriptions);
+    } catch (error) {
+        console.error("Prescription history error:", error);
+        displayPrescriptions([]);
+    }
 }
