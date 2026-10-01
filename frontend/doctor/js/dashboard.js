@@ -110,102 +110,56 @@ displayCurrentDate();
 // ==========================================
 
 async function loadDashboard() {
-
-    const accessToken = getAccessToken();
-
-
-    if (!accessToken) {
-
+    if (!doctorId || !getAccessToken()) {
         logout();
-
         return;
     }
 
+    let dashboardData = null;
 
+    // This endpoint supplies supplemental dashboard values (not the table data).
+    // Failure here must not prevent the working appointments endpoint from loading.
     try {
-
-        const response = await fetch(
+        let response = await fetch(
             `${API_BASE_URL}/doctor/dashboard/${doctorId}/`,
             {
                 method: "GET",
-
                 headers: {
-                    "Authorization":
-                        `Bearer ${accessToken}`,
-
-                    "Content-Type":
-                        "application/json"
+                    "Authorization": `Bearer ${getAccessToken()}`,
+                    "Content-Type": "application/json"
                 }
             }
         );
 
-
-        // ==================================
-        // TOKEN EXPIRED
-        // ==================================
-
-        if (response.status === 401) {
-
-            const refreshed =
-                await refreshAccessToken();
-
-            if (refreshed) {
-
-                // Try dashboard again
-                await loadDashboard();
-
-                return;
-
-            } else {
-
-                logout();
-
-                return;
-            }
+        if (response.status === 401 && await refreshAccessToken()) {
+            response = await fetch(
+                `${API_BASE_URL}/doctor/dashboard/${doctorId}/`,
+                {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${getAccessToken()}`,
+                        "Content-Type": "application/json"
+                    }
+                }
+            );
         }
 
-
-        if (response.status === 403) {
-
-            showDashboardError(
-                "You are not authorized to access this dashboard."
-            );
-
+        if (response.status === 401) {
+            logout();
             return;
         }
 
-
-        if (!response.ok) {
-
-            throw new Error(
-                "Unable to load dashboard."
-            );
+        if (response.ok) {
+            dashboardData = await response.json();
+            displayDashboardData(dashboardData);
+        } else {
+            console.error("Dashboard summary request failed:", response.status);
         }
-
-
-        const data = await response.json();
-
-
-        console.log("Dashboard response:", data);
-
-
-        // Display API data
-        displayDashboardData(data);
-
-
     } catch (error) {
-
-        console.error(
-            "Dashboard error:",
-            error
-        );
-
-        showDashboardError(
-            "Unable to connect to the server."
-        );
-
+        console.error("Dashboard summary error:", error);
     }
 
+    await loadDashboardAppointments(dashboardData);
 }
 
 
@@ -230,21 +184,12 @@ function displayDashboardData(data) {
     // Appointment count
     // --------------------------------------
 
-    const appointments =
-        data.appointments ||
-        data.today_appointments ||
-        data.data?.appointments ||
-        [];
+    const appointments = data.appointments || {};
 
 
-    const appointmentCount =
-        Array.isArray(appointments)
-            ? appointments.length
-            : (
-                data.appointment_count ||
-                data.today_appointments_count ||
-                0
-            );
+    const appointmentCount = Array.isArray(appointments)
+        ? appointments.length
+        : (appointments.total ?? data.appointment_count ?? 0);
 
 
     document.getElementById(
@@ -252,20 +197,11 @@ function displayDashboardData(data) {
     ).textContent = appointmentCount;
 
 
-    document.getElementById(
-        "appointmentBadge"
-    ).textContent = appointmentCount;
-
-
     // --------------------------------------
     // Completed
     // --------------------------------------
 
-    const completed =
-        data.completed ||
-        data.completed_appointments ||
-        data.data?.completed ||
-        0;
+    const completed = appointments.completed ?? data.completed ?? 0;
 
 
     document.getElementById(
@@ -277,11 +213,7 @@ function displayDashboardData(data) {
     // Pending
     // --------------------------------------
 
-    const pending =
-        data.pending ||
-        data.pending_appointments ||
-        data.data?.pending ||
-        0;
+    const pending = (appointments.scheduled ?? 0) + (appointments.confirmed ?? 0);
 
 
     document.getElementById(
@@ -293,28 +225,25 @@ function displayDashboardData(data) {
     // Patients
     // --------------------------------------
 
-    const patients =
-        data.patients_seen ||
-        data.total_patients ||
-        data.data?.patients_seen ||
-        0;
+    const patients = data.patients_seen ?? data.total_patients ?? 0;
 
 
     document.getElementById(
         "patientsSeen"
     ).textContent = patients;
 
+    const appointmentChange = data.appointment_change ?? 0;
+    document.getElementById("appointmentChange").textContent =
+        `${appointmentChange > 0 ? "+" : ""}${appointmentChange} appointments vs yesterday`;
+    const completedPercentage = appointmentCount
+        ? Math.round((completed / appointmentCount) * 100)
+        : 0;
+    document.getElementById("completedPercentage").textContent = `${completedPercentage}%`;
+
 
     // --------------------------------------
     // Appointment table
     // --------------------------------------
-
-    if (Array.isArray(appointments)) {
-
-        displayAppointments(appointments);
-
-    }
-
 
     // --------------------------------------
     // Summary
@@ -331,6 +260,109 @@ function displayDashboardData(data) {
     ).textContent =
         `Showing ${appointmentCount} appointments`;
 
+}
+
+async function loadDashboardAppointments(dashboardData = null) {
+    try {
+        let response = await fetch(`${API_BASE_URL}/doctor/appointments/${doctorId}/`, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${getAccessToken()}`,
+                "Content-Type": "application/json"
+            }
+        });
+        if (response.status === 401 && await refreshAccessToken()) {
+            response = await fetch(`${API_BASE_URL}/doctor/appointments/${doctorId}/`, {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${getAccessToken()}`,
+                    "Content-Type": "application/json"
+                }
+            });
+        }
+        if (response.status === 401) {
+            logout();
+            return;
+        }
+        if (response.status === 403) {
+            throw new Error("You are not authorized to view these appointments.");
+        }
+        if (!response.ok) throw new Error(`Unable to load today's appointments (${response.status}).`);
+        const appointments = await response.json();
+
+        if (!Array.isArray(appointments)) {
+            throw new Error("The appointments response was not a list.");
+        }
+
+        // Keep the existing View/Open actions informed when a consultation exists.
+        // This is supplemental: consultation lookup errors do not hide appointment rows.
+        try {
+            let consultationsResponse = await fetch(`${API_BASE_URL}/doctor/consultations/${doctorId}/`, {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${getAccessToken()}`,
+                    "Content-Type": "application/json"
+                }
+            });
+            if (consultationsResponse.status === 401 && await refreshAccessToken()) {
+                consultationsResponse = await fetch(`${API_BASE_URL}/doctor/consultations/${doctorId}/`, {
+                    method: "GET",
+                    headers: {
+                        Authorization: `Bearer ${getAccessToken()}`,
+                        "Content-Type": "application/json"
+                    }
+                });
+            }
+            if (consultationsResponse.ok) {
+                const consultations = await consultationsResponse.json();
+                if (Array.isArray(consultations)) {
+                    const consultationByAppointment = new Map(
+                        consultations.map(item => [String(item.appointment), item])
+                    );
+                    appointments.forEach(item => {
+                        const consultation = consultationByAppointment.get(String(item.appointment_id));
+                        if (consultation) item.consultation_id = consultation.consultation_id;
+                    });
+                }
+            } else {
+                console.error("Dashboard consultation lookup failed:", consultationsResponse.status);
+            }
+        } catch (error) {
+            console.error("Dashboard consultation lookup error:", error);
+        }
+
+        displayAppointments(appointments);
+        const statusOf = item => String(item.status || "").trim().toLowerCase();
+        const completedCount = appointments.filter(item => statusOf(item) === "completed").length;
+        const pendingCount = appointments.filter(item => ["scheduled", "confirmed"].includes(statusOf(item))).length;
+        const seenPatients = new Set(
+            appointments
+                .filter(item => item.consultation_id)
+                .map(item => String(item.patient))
+        );
+
+        document.getElementById("todayAppointments").textContent = appointments.length;
+        document.getElementById("completedAppointments").textContent = completedCount;
+        document.getElementById("completedPercentage").textContent = appointments.length ? `${Math.round(completedCount * 100 / appointments.length)}%` : "0%";
+        document.getElementById("pendingAppointments").textContent = pendingCount;
+        if (dashboardData && dashboardData.patients_seen !== undefined) {
+            document.getElementById("patientsSeen").textContent = dashboardData.patients_seen;
+        } else {
+            document.getElementById("patientsSeen").textContent = seenPatients.size;
+        }
+        document.getElementById("appointmentSummary").textContent = `${appointments.length} appointments scheduled`;
+        document.getElementById("showingText").textContent = `Showing ${appointments.length} appointments`;
+        const now = new Date();
+        const upcoming = appointments
+            .filter(item => ["scheduled", "confirmed"].includes(String(item.status || "").toLowerCase()))
+            .map(item => item.appointment_time)
+            .filter(time => time && time > now.toTimeString().slice(0, 8))
+            .sort()[0];
+        document.getElementById("nextPatientTime").textContent = upcoming ? formatTime(upcoming) : "None";
+    } catch (error) {
+        console.error("Dashboard appointments error:", error);
+        showDashboardError(error.message || "Unable to load today's appointments.");
+    }
 }
 
 
@@ -390,12 +422,14 @@ function displayAppointments(appointments) {
 
 
             const patientId =
+                appointment.patient ||
                 appointment.patient_id ||
                 appointment.patient?.patient_id ||
                 "";
 
 
             const type =
+                appointment.reason ||
                 appointment.appointment_type ||
                 appointment.type ||
                 "General consultation";
@@ -407,9 +441,7 @@ function displayAppointments(appointments) {
                 "Pending";
 
 
-            const status =
-                appointment.status ||
-                "Waiting";
+            const status = appointment.status || "Waiting";
 
 
             row.innerHTML = `
@@ -571,6 +603,11 @@ function createActionButtons(appointment) {
         String(
             appointment.status || ""
         ).toLowerCase();
+
+    if (appointment.consultation_id) {
+        return `<button class="table-action" onclick="viewPatient(${appointmentId})">View</button>
+            <button class="table-action primary" onclick="openExistingConsultation(${appointment.consultation_id})">Open</button>`;
+    }
 
 
     let startButton = "";
@@ -772,6 +809,8 @@ function startConsultation() {
 
 function viewPatient(appointmentId) {
 
+    if (appointmentId) localStorage.setItem("current_appointment_id", String(appointmentId));
+
     window.location.href =
         `patient.html?appointment_id=${appointmentId}`;
 }
@@ -779,8 +818,15 @@ function viewPatient(appointmentId) {
 
 function openConsultation(appointmentId) {
 
+    if (appointmentId) localStorage.setItem("current_appointment_id", String(appointmentId));
+
     window.location.href =
         `consultation.html?appointment_id=${appointmentId}`;
+}
+
+function openExistingConsultation(consultationId) {
+    localStorage.removeItem("current_appointment_id");
+    window.location.href = `consultation.html?consultation_id=${encodeURIComponent(consultationId)}&mode=view`;
 }
 
 

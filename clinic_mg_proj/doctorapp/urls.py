@@ -6,13 +6,24 @@ from .views import (
     doctor_dashboard,
     doctor_appointments,
     appointment_patient_details,
+    search_patients,
     create_consultation,
     create_prescription,
     create_lab_test_request,
     patient_medical_history,
-    create_medical_record
+    create_medical_record,
+    available_medicines,
+    available_lab_tests,
+    doctor_consultations,
+    doctor_medical_history,
+    doctor_medical_records,
+    doctor_prescriptions,
+    doctor_lab_tests
+
 
 )
+
+
 
 
 urlpatterns = [
@@ -76,4 +87,29 @@ urlpatterns = [
         TokenRefreshView.as_view(),
         name='doctor_token_refresh'
     ),
+    path(
+        'patients/<int:doctor_id>/search/',
+        search_patients,
+        name='search-patients'
+    ),
+    path(
+        'medicines/',
+        available_medicines,
+        name='available-medicines'
+    ),
+    path(
+        'lab-tests/',
+        available_lab_tests,
+        name='available-lab-tests'
+    ),
+
+    path(
+        'consultations/<int:doctor_id>/',
+        doctor_consultations,
+        name='doctor-consultations'
+    ),
+    path('history/<int:doctor_id>/', doctor_medical_history, name='doctor-medical-history'),
+    path('medical-records/<int:doctor_id>/', doctor_medical_records, name='doctor-medical-records'),
+    path('prescriptions/<int:doctor_id>/', doctor_prescriptions, name='doctor-prescriptions'),
+    path('lab-test-requests/<int:doctor_id>/', doctor_lab_tests, name='doctor-lab-tests'),
 ]

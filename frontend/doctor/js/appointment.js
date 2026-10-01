@@ -214,6 +214,8 @@ function displayAppointments(appointments) {
                     </span>
                 </td>
 
+                <td>${escapeHtml(appointment.patient_name || "-")}</td>
+
                 <td>
                     ${escapeHtml(time)}
                 </td>
@@ -242,6 +244,7 @@ function displayAppointments(appointments) {
                     >
                         View Patient
                     </button>
+                    <button class="view-btn" onclick="openConsultation(${Number(appointment.appointment_id)})">Start Consultation</button>
                 </td>
 
             `;
@@ -307,8 +310,30 @@ function updateStatistics(appointments) {
 
 function viewPatient(appointmentId) {
 
+    if (!appointmentId ||
+        appointmentId === "null" ||
+        appointmentId === "undefined") {
+
+        showError(
+            "This appointment does not have a valid appointment ID."
+        );
+
+        return;
+    }
+
+    localStorage.setItem("current_appointment_id", String(appointmentId));
+
     window.location.href =
-        `patient.html?appointment_id=${appointmentId}`;
+        `patient.html?appointment_id=${appointmentId}&from=appointments`;
+}
+
+function openConsultation(appointmentId) {
+    if (!appointmentId || appointmentId === "null" || appointmentId === "undefined") {
+        showError("This appointment does not have a valid appointment ID.");
+        return;
+    }
+    localStorage.setItem("current_appointment_id", String(appointmentId));
+    window.location.href = `consultation.html?appointment_id=${encodeURIComponent(appointmentId)}`;
 }
 
 

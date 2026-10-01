@@ -27,7 +27,7 @@
 
     <!-- SIDEBAR -->
 
-    <aside class="sidebar">
+    <aside id="sidebar" class="sidebar">
 
         <div class="logo">
 
@@ -202,7 +202,7 @@
                     </h1>
 
                     <p>
-                        Request laboratory tests for the patient
+                        Choose a prescription for lab requests or view saved requests
                     </p>
 
                 </div>
@@ -210,6 +210,12 @@
             </div>
 
 
+
+            <div id="labTestHome" class="content-card" style="display:none;">
+                <div class="card-header"><div><h2>Select a Prescription</h2><p>Choose a patient's prescription to request laboratory tests.</p></div>
+                  <button class="secondary-btn" onclick="window.location.href='labtest.html?mode=history'">View Lab Test History</button></div>
+                <div id="prescriptionOptions"></div>
+            </div>
 
             <!-- PATIENT CARD -->
 
@@ -266,11 +272,16 @@
                 style="display:none;"
             ></div>
 
+            <div id="labTestHistory" class="content-card" style="display:none;">
+                <div class="card-header"><div><h2>Lab Test History</h2><p>Previous lab test requests</p></div><button class="secondary-btn" onclick="window.location.href='labtest.html'">Back to Lab Tests</button></div>
+                <div id="labTestHistoryList"></div>
+            </div>
+
 
 
             <!-- LAB TEST CARD -->
 
-            <div class="content-card">
+            <div id="labTestFormCard" class="content-card">
 
 
                 <div class="card-header">
@@ -310,12 +321,9 @@
 
                             </label>
 
-                            <input
-                                type="text"
-                                id="testName"
-                                placeholder="e.g. Complete Blood Count"
-                                required
-                            >
+                            <select id="testName" required>
+                                <option value="">Select laboratory test</option>
+                            </select>
 
                         </div>
 
@@ -452,6 +460,7 @@
 <script src="js/auth.js"></script>
 
 <script src="js/labtest.js"></script>
+<script src="js/sidebar.js"></script>
 
 </body>
 
