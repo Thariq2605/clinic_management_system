@@ -1,17 +1,25 @@
 from rest_framework import serializers
 
-from core.models import Staff, Department, Doctor, Medicine, Role, User
+from core.models import Staff, Department, Doctor, Medicine, Role, User, Receptionist
 
 
 class StaffSerializer(serializers.ModelSerializer):
 
-    class Meta:
+    username = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True)
+    role = serializers.PrimaryKeyRelatedField(
+        queryset=Role.objects.all(),
+        write_only=True
+    )
 
+    class Meta:
         model = Staff
 
         fields = [
             "staff_id",
-            "user",
+            "username",
+            "password",
+            "role",
             "full_name",
             "gender",
             "dob",
@@ -22,6 +30,36 @@ class StaffSerializer(serializers.ModelSerializer):
         ]
 
         read_only_fields = ["staff_id"]
+
+    def create(self, validated_data):
+
+        username = validated_data.pop("username")
+        password = validated_data.pop("password")
+        role = validated_data.pop("role")
+
+        # Create User
+        user = User(
+            username=username,
+            role=role,
+            is_active=True
+        )
+        user.set_password(password)
+        user.save()
+
+        # Create Staff
+        staff = Staff.objects.create(
+            user=user,
+            **validated_data
+        )
+
+        # Create Receptionist profile automatically
+        if role.role_name.lower() == "receptionist":
+            Receptionist.objects.create(
+                staff=staff,
+                is_active=True
+            )
+
+        return staff
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
@@ -42,6 +80,8 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
 class DoctorSerializer(serializers.ModelSerializer):
 
+    doctor_name = serializers.SerializerMethodField()
+
     class Meta:
 
         model = Doctor
@@ -49,6 +89,7 @@ class DoctorSerializer(serializers.ModelSerializer):
         fields = [
             "doctor_id",
             "staff",
+            "doctor_name",
             "specialization",
             "department",
             "consultation_fee",
@@ -58,7 +99,13 @@ class DoctorSerializer(serializers.ModelSerializer):
             "is_active",
         ]
 
-        read_only_fields = ["doctor_id"]
+        read_only_fields = [
+            "doctor_id",
+            "doctor_name",
+        ]
+
+    def get_doctor_name(self, obj):
+        return obj.staff.full_name
         
 class MedicineSerializer(serializers.ModelSerializer):
 
