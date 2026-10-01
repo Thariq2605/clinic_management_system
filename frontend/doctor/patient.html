@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Patient Details - CareFlow</title>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+<div class="app-container">
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="sidebar">
+
+        <div class="logo-section">
+
+            <div class="logo-icon">+</div>
+
+            <div>
+                <div class="logo-text">CareFlow</div>
+                <div class="logo-subtitle">CLINIC SYSTEM</div>
+            </div>
+
+        </div>
+
+
+        <nav class="sidebar-nav">
+
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">⌂</span>
+                <span>Dashboard</span>
+            </a>
+
+            <a href="appointment.html" class="nav-item">
+                <span class="nav-icon">▣</span>
+                <span>Appointments</span>
+            </a>
+
+            <a href="patients.html" class="nav-item active">
+                <span class="nav-icon">♙</span>
+                <span>Patients</span>
+            </a>
+
+            <a href="medicalhistory.html" class="nav-item">
+                <span class="nav-icon">▤</span>
+                <span>Medical History</span>
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-bottom">
+
+            <a href="#" class="nav-item">
+                <span class="nav-icon">⚙</span>
+                <span>Settings</span>
+            </a>
+
+            <a
+                href="#"
+                class="nav-item"
+                onclick="logout()"
+            >
+                <span class="nav-icon">↪</span>
+                <span>Logout</span>
+            </a>
+
+        </div>
+
+    </aside>
+
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+        <!-- TOP BAR -->
+        <header class="topbar">
+
+            <div class="search-box">
+
+                <span>⌕</span>
+
+                <input
+                    type="text"
+                    placeholder="Search patients..."
+                >
+
+            </div>
+
+
+            <div class="doctor-profile">
+
+                <div class="notification">
+                    ♢
+                </div>
+
+                <div class="doctor-avatar">
+                    DR
+                </div>
+
+                <div class="doctor-info">
+
+                    <strong id="doctorName">
+                        Doctor
+                    </strong>
+
+                    <span>Doctor</span>
+
+                </div>
+
+                <span class="profile-arrow">⌄</span>
+
+            </div>
+
+        </header>
+
+
+        <!-- PAGE -->
+        <section class="page-content">
+
+            <!-- BACK -->
+            <div class="page-back">
+                <button
+                    type="button"
+                    class="back-btn"
+                    onclick="goBack()"
+                    >
+                <span class="back-arrow">←</span>
+                <span id="backText">Back</span>
+                </button>
+            </div>
+
+
+            <!-- LOADING -->
+            <div
+                id="loadingMessage"
+                class="patient-loading"
+            >
+                Loading patient details...
+            </div>
+
+
+            <!-- ERROR / PAYMENT RESTRICTED -->
+            <div
+                id="restrictedMessage"
+                class="restricted-card"
+                style="display:none;"
+            >
+
+                <div class="restricted-icon">
+                    🔒
+                </div>
+
+                <h2>Patient Details Restricted</h2>
+
+                <p id="restrictedText">
+                    Payment has not been completed for this appointment.
+                </p>
+
+                <p class="restricted-help">
+                    Please contact the Receptionist to complete the payment.
+                </p>
+
+                <button
+                    class="primary-btn"
+                    onclick="goBack()"
+                >
+                    Back to Appointments
+                </button>
+
+            </div>
+
+
+            <!-- GENERAL ERROR -->
+            <div
+                id="errorMessage"
+                class="error-message"
+                style="display:none;"
+            ></div>
+
+
+            <!-- PATIENT CONTENT -->
+            <div
+                id="patientContent"
+                style="display:none;"
+            >
+
+                <!-- HEADER -->
+                <div class="patient-page-header">
+
+                    <div>
+
+                        <div class="breadcrumb">
+                            Appointments / Patient Details
+                        </div>
+
+                        <h1>Patient Details</h1>
+
+                        <p>
+                            View current patient information
+                        </p>
+
+                    </div>
+
+
+                    <div
+                        id="paymentBadge"
+                        class="payment-paid"
+                    >
+                        ✓ Payment Paid
+                    </div>
+
+                </div>
+
+
+                <!-- PATIENT PROFILE -->
+                <div class="patient-profile-card">
+
+                    <div class="patient-avatar-large">
+                        <span id="patientInitial">
+                            P
+                        </span>
+                    </div>
+
+
+                    <div class="patient-main-info">
+
+                        <h2 id="patientName">
+                            -
+                        </h2>
+
+                        <p>
+                            Patient ID:
+                            <strong id="patientId">
+                                -
+                            </strong>
+                        </p>
+
+                    </div>
+
+
+                    <div class="appointment-info">
+
+                        <span>
+                            Token
+                        </span>
+
+                        <strong id="tokenNumber">
+                            -
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <!-- BASIC INFORMATION -->
+                <div class="details-card">
+
+                    <div class="details-card-header">
+
+                        <div>
+                            <h2>Basic Information</h2>
+
+                            <p>
+                                Patient demographic information
+                            </p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="details-grid">
+
+                        <div class="detail-item">
+
+                            <span class="detail-label">
+                                Full Name
+                            </span>
+
+                            <strong id="detailName">
+                                -
+                            </strong>
+
+                        </div>
+
+
+                        <div class="detail-item">
+
+                            <span class="detail-label">
+                                Age
+                            </span>
+
+                            <strong id="detailAge">
+                                -
+                            </strong>
+
+                        </div>
+
+
+                        <div class="detail-item">
+
+                            <span class="detail-label">
+                                Gender
+                            </span>
+
+                            <strong id="detailGender">
+                                -
+                            </strong>
+
+                        </div>
+
+
+                        <div class="detail-item">
+
+                            <span class="detail-label">
+                                Blood Group
+                            </span>
+
+                            <strong id="detailBloodGroup">
+                                -
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- CONTACT INFORMATION -->
+                <div class="details-card">
+
+                    <div class="details-card-header">
+
+                        <div>
+                            <h2>Contact Information</h2>
+
+                            <p>
+                                Patient contact details
+                            </p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="details-grid">
+
+                        <div class="detail-item">
+
+                            <span class="detail-label">
+                                Mobile Number
+                            </span>
+
+                            <strong id="detailMobile">
+                                -
+                            </strong>
+
+                        </div>
+
+
+                        <div class="detail-item">
+
+                            <span class="detail-label">
+                                Email
+                            </span>
+
+                            <strong id="detailEmail">
+                                -
+                            </strong>
+
+                        </div>
+
+
+                        <div class="detail-item full-width">
+
+                            <span class="detail-label">
+                                Address
+                            </span>
+
+                            <strong id="detailAddress">
+                                -
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- EMERGENCY CONTACT -->
+                <div class="details-card">
+
+                    <div class="details-card-header">
+
+                        <div>
+                            <h2>Emergency Contact</h2>
+
+                            <p>
+                                Emergency contact information
+                            </p>
+                        </div>
+
+                    </div>
+
+
+                    <div class="details-grid">
+
+                        <div class="detail-item">
+
+                            <span class="detail-label">
+                                Contact Name
+                            </span>
+
+                            <strong id="detailEmergency">
+                                -
+                            </strong>
+
+                        </div>
+
+
+                        <div class="detail-item">
+
+                            <span class="detail-label">
+                                Contact Phone
+                            </span>
+
+                            <strong id="detailEmergencyPhone">
+                                -
+                            </strong>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ACTIONS -->
+                <div class="patient-actions">
+
+                    <button
+                        class="secondary-btn"
+                        onclick="goBack()"
+                    >
+                        ← Back
+                    </button>
+
+                    <button
+                        class="primary-btn"
+                        onclick="startConsultation()"
+                    >
+                        Start Consultation →
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<script src="js/auth.js"></script>
+<script src="js/patient.js"></script>
+<script src="js/sidebar.js"></script>
+
+</body>
+</html>

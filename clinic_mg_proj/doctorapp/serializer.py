@@ -1,17 +1,19 @@
 from rest_framework import serializers
-from core.models import Appointment,Patient,Consultation,Prescription, PrescriptionMedicine,PrescriptionLabTest,MedicalRecord
+from core.models import Appointment,Patient,Consultation,Prescription, PrescriptionMedicine,PrescriptionLabTest,MedicalRecord,Medicine
 
-
+from core.models import LabTest
 from datetime import date
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(source='patient.full_name', read_only=True)
 
     class Meta:
         model = Appointment
         fields = [
             'appointment_id',
             'patient',
+            'patient_name',
             'doctor',
             'receptionist',
             'appointment_date',
@@ -19,6 +21,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'token_number',
             'reason',
             'status',
+            'payment_status',
             'created_at',
             'is_active'
         ]
@@ -80,6 +83,7 @@ class ConsultationSerializer(serializers.ModelSerializer):
             ]
 
 class PrescriptionSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(source='patient.full_name', read_only=True)
 
     class Meta:
         model = Prescription
@@ -87,6 +91,7 @@ class PrescriptionSerializer(serializers.ModelSerializer):
             'prescription_id',
             'consultation',
             'patient',
+            'patient_name',
             'doctor',
             'prescription_date',
             'is_active'
@@ -134,12 +139,18 @@ class PrescriptionLabTestSerializer(serializers.ModelSerializer):
         source='test.test_name',
         read_only=True
     )
+    patient_name = serializers.CharField(source='prescription.patient.full_name', read_only=True)
+    consultation_id = serializers.IntegerField(source='prescription.consultation_id', read_only=True)
+    patient_id = serializers.IntegerField(source='prescription.patient_id', read_only=True)
 
     class Meta:
         model = PrescriptionLabTest
         fields = [
             'prescription_lab_test_id',
             'prescription',
+            'consultation_id',
+            'patient_id',
+            'patient_name',
             'test',
             'test_name',
             'instructions',
@@ -154,12 +165,14 @@ class PrescriptionLabTestSerializer(serializers.ModelSerializer):
 
 
 class MedicalRecordSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(source='patient.full_name', read_only=True)
 
     class Meta:
         model = MedicalRecord
         fields = [
             'record_id',
             'patient',
+            'patient_name',
             'doctor',
             'consultation',
             'diagnosis',
@@ -174,4 +187,32 @@ class MedicalRecordSerializer(serializers.ModelSerializer):
             'doctor',
             'consultation',
             'created_at'
+        ]
+
+class MedicineSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Medicine
+        fields = [
+            'medicine_id',
+            'medicine_name',
+            'manufacturer',
+            'unit_price',
+            'quantity',
+            'expiry_date',
+            'is_active'
+        ]
+
+class LabTestSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = LabTest
+        fields = [
+            'test_id',
+            'test_name',
+            'test_type',
+            'description',
+            'test_fee',
+            'normal_range',
+            'is_active'
         ]
