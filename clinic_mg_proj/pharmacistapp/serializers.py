@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from core.models import Medicine, PrescriptionMedicine
-
+from core.models import Prescription
 
 class MedicineSerializer(serializers.ModelSerializer):
     class Meta:
@@ -29,7 +29,6 @@ class PrescriptionMedicineSerializer(serializers.ModelSerializer):
             'dosage', 'frequency', 'duration', 'instructions', 'is_active'
         ]
 
-from core.models import Prescription
 
 class PrescriptionSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(source='patient.full_name', read_only=True)
