@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Appointment Details - Clinic System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="app-wrapper">
+  <!-- Mobile Backdrop -->
+  <div id="sidebar-backdrop"></div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <i class="bi bi-hospital"></i>
+      <span>Clinic Care</span>
+    </div>
+
+    <ul class="nav-list">
+      <li class="nav-item">
+        <a href="dashboard.html" class="nav-link">
+          <i class="bi bi-speedometer2"></i>
+          <span>Dashboard</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="patients.html" class="nav-link">
+          <i class="bi bi-people"></i>
+          <span>Patients</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="appointments.html" class="nav-link active">
+          <i class="bi bi-calendar2-check"></i>
+          <span>Appointments</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="doctors.html" class="nav-link">
+          <i class="bi bi-person-badge"></i>
+          <span>Doctors</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="billing.html" class="nav-link">
+          <i class="bi bi-credit-card-2-front"></i>
+          <span>Billing & Payments</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <a href="#" class="nav-link text-danger p-2 btn-logout-trigger">
+        <i class="bi bi-box-arrow-right"></i>
+        <span>Sign Out</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <div id="content-wrapper">
+    <!-- Top Navbar -->
+    <header class="top-navbar">
+      <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-light d-lg-none border-0 p-1" id="sidebar-toggle-btn" aria-label="Toggle Navigation">
+          <i class="bi bi-list fs-4"></i>
+        </button>
+        <div>
+          <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0 small">
+              <li class="breadcrumb-item"><a href="appointments.html" class="text-decoration-none">Appointments</a></li>
+              <li class="breadcrumb-item active" aria-current="page">Details</li>
+            </ol>
+          </nav>
+          <h1 class="page-title h4 mb-0">Appointment Information</h1>
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center gap-3">
+        <div class="user-badge">
+          <div class="user-avatar" id="navbar-user-avatar">R</div>
+          <div class="d-none d-sm-block text-end">
+            <div class="fw-semibold text-dark small" id="navbar-user-name">Receptionist</div>
+            <small class="text-muted" style="font-size: 0.75rem;">Desk Operator</small>
+          </div>
+        </div>
+        <button class="btn btn-outline-danger btn-sm rounded-pill px-3 btn-logout-trigger">
+          <i class="bi bi-box-arrow-right me-1"></i> Logout
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Loading Indicator -->
+      <div id="apt-details-loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading appointment...</span>
+        </div>
+        <div class="text-muted small mt-2">Loading appointment records...</div>
+      </div>
+
+      <!-- Content Container -->
+      <div id="apt-details-content" class="d-none">
+        <!-- Header Summary Card -->
+        <div class="card-custom p-4 mb-4">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div>
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <h2 class="h4 fw-bold text-dark mb-0">Appointment <span id="apt-header-id">#--</span></h2>
+                <span class="badge bg-primary fs-6 py-1 px-2">Token <span id="apt-header-token">#--</span></span>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <span id="apt-header-status-badge"></span>
+                <span id="apt-header-pay-badge"></span>
+              </div>
+            </div>
+
+            <!-- Header Action Buttons -->
+            <div class="d-flex flex-wrap gap-2">
+              <button class="btn btn-success" id="open-payment-modal-btn" onclick="openRecordPaymentModal()">
+                <i class="bi bi-cash-stack me-1"></i> Record Payment
+              </button>
+              <button class="btn btn-outline-danger" id="cancel-appointment-btn">
+                <i class="bi bi-x-circle me-1"></i> Cancel Appointment
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+          <!-- Patient Card -->
+          <div class="col-12 col-md-4">
+            <div class="card-custom p-4 h-100">
+              <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                <h3 class="h6 fw-bold text-dark mb-0">
+                  <i class="bi bi-person text-primary me-2"></i>Patient Details
+                </h3>
+                <a href="#" class="small text-decoration-none" id="apt-patient-profile-link">View Profile</a>
+              </div>
+
+              <div class="mb-2">
+                <label class="text-muted small">Name</label>
+                <div class="fw-bold text-dark" id="apt-patient-name">-</div>
+              </div>
+              <div class="row g-2 mb-2">
+                <div class="col-6">
+                  <label class="text-muted small">Patient ID</label>
+                  <div class="fw-semibold text-primary" id="apt-patient-id">-</div>
+                </div>
+                <div class="col-6">
+                  <label class="text-muted small">Blood Group</label>
+                  <div class="fw-semibold text-danger" id="apt-patient-blood">-</div>
+                </div>
+              </div>
+              <div class="mb-2">
+                <label class="text-muted small">Mobile</label>
+                <div class="fw-medium text-dark" id="apt-patient-phone">-</div>
+              </div>
+              <div class="mb-2">
+                <label class="text-muted small">Email</label>
+                <div class="fw-medium text-dark text-truncate" id="apt-patient-email">-</div>
+              </div>
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="text-muted small">Gender</label>
+                  <div class="fw-medium text-dark" id="apt-patient-gender">-</div>
+                </div>
+                <div class="col-6">
+                  <label class="text-muted small">DOB</label>
+                  <div class="fw-medium text-dark" id="apt-patient-dob">-</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Doctor Card -->
+          <div class="col-12 col-md-4">
+            <div class="card-custom p-4 h-100">
+              <h3 class="h6 fw-bold text-dark border-bottom pb-2 mb-3">
+                <i class="bi bi-person-badge text-teal me-2"></i>Doctor & Department
+              </h3>
+
+              <div class="mb-2">
+                <label class="text-muted small">Doctor</label>
+                <div class="fw-bold text-dark" id="apt-doctor-name">-</div>
+              </div>
+              <div class="mb-2">
+                <label class="text-muted small">Qualification</label>
+                <div class="fw-medium text-dark" id="apt-doctor-qual">-</div>
+              </div>
+              <div class="mb-2">
+                <label class="text-muted small">Department</label>
+                <div class="fw-semibold text-teal" id="apt-doctor-dept">-</div>
+              </div>
+              <div class="mb-0">
+                <label class="text-muted small">Consultation Fee</label>
+                <div class="fw-bold text-success fs-6" id="apt-doctor-fee">₹0.00</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Schedule & Reception Details -->
+          <div class="col-12 col-md-4">
+            <div class="card-custom p-4 h-100">
+              <h3 class="h6 fw-bold text-dark border-bottom pb-2 mb-3">
+                <i class="bi bi-clock-history text-warning me-2"></i>Schedule & Meta
+              </h3>
+
+              <div class="row g-2 mb-2">
+                <div class="col-6">
+                  <label class="text-muted small">Date</label>
+                  <div class="fw-bold text-dark" id="apt-val-date">-</div>
+                </div>
+                <div class="col-6">
+                  <label class="text-muted small">Time</label>
+                  <div class="fw-bold text-dark" id="apt-val-time">-</div>
+                </div>
+              </div>
+              <div class="mb-2">
+                <label class="text-muted small">Token Number</label>
+                <div class="fw-bold text-primary" id="apt-val-token">-</div>
+              </div>
+              <div class="mb-2">
+                <label class="text-muted small">Booked By (Receptionist)</label>
+                <div class="fw-medium text-dark" id="apt-val-receptionist">-</div>
+              </div>
+              <div class="mb-0">
+                <label class="text-muted small">Reason / Symptoms</label>
+                <div class="fw-medium text-dark" id="apt-val-reason">-</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Billing Summary & Payment History -->
+        <div class="row g-4">
+          <!-- Billing Card -->
+          <div class="col-12 col-lg-5">
+            <div class="card-custom p-4 h-100">
+              <h3 class="h6 fw-bold text-dark border-bottom pb-2 mb-3">
+                <i class="bi bi-receipt text-primary me-2"></i>Billing Summary
+              </h3>
+
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="text-muted">Bill ID</span>
+                <span class="fw-bold text-dark" id="bill-val-id">#--</span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted">Total Fee</span>
+                <span class="fw-bold text-dark" id="bill-val-total">₹0.00</span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted">Paid Total</span>
+                <span class="fw-bold text-success" id="bill-val-paid">₹0.00</span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mb-3 pt-2 border-top">
+                <span class="fw-bold text-dark">Outstanding Balance</span>
+                <span class="fw-bold text-danger fs-5" id="bill-val-balance">₹0.00</span>
+              </div>
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <span class="text-muted">Bill Payment Status</span>
+                <span id="bill-val-status"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Payments History Table -->
+          <div class="col-12 col-lg-7">
+            <div class="card-custom p-4 h-100">
+              <h3 class="h6 fw-bold text-dark border-bottom pb-2 mb-3">
+                <i class="bi bi-credit-card-2-front text-teal me-2"></i>Payment Transactions History
+              </h3>
+
+              <div id="payment-history-empty" class="empty-state py-4 d-none">
+                <i class="bi bi-cash-coin" style="font-size: 2.25rem;"></i>
+                <h4 class="h6 text-muted mt-2">No payment transactions recorded yet</h4>
+                <p class="small text-muted mb-0">Record a payment using the "Record Payment" button.</p>
+              </div>
+
+              <div class="table-responsive">
+                <table class="table table-custom align-middle">
+                  <thead>
+                    <tr>
+                      <th>Payment ID</th>
+                      <th>Amount</th>
+                      <th>Method</th>
+                      <th>Date & Time</th>
+                      <th>Reference</th>
+                    </tr>
+                  </thead>
+                  <tbody id="payment-history-tbody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ===================================================================
+     RECORD PAYMENT MODAL
+=================================================================== -->
+<div class="modal fade" id="recordPaymentModal" tabindex="-1" aria-labelledby="recordPaymentModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-light">
+        <h5 class="modal-title fw-bold" id="recordPaymentModalLabel">
+          <i class="bi bi-credit-card text-success me-2"></i>Record Payment
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="record-payment-form">
+        <div class="modal-body p-4">
+          <div id="record-payment-error" class="alert alert-danger py-2 small d-none" role="alert"></div>
+
+          <!-- Bill Summary Panel -->
+          <div class="bg-light p-3 rounded-3 mb-3 border">
+            <div class="row g-2 text-center">
+              <div class="col-4 border-end">
+                <small class="text-muted d-block">Consultation</small>
+                <span class="fw-bold text-dark" id="modal-bill-total">₹0.00</span>
+              </div>
+              <div class="col-4 border-end">
+                <small class="text-muted d-block">Paid</small>
+                <span class="fw-bold text-success" id="modal-bill-paid">₹0.00</span>
+              </div>
+              <div class="col-4">
+                <small class="text-muted d-block">Balance</small>
+                <span class="fw-bold text-danger" id="modal-bill-balance">₹0.00</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="modal-pay-amount" class="form-label">Payment Amount (₹) <span class="text-danger">*</span></label>
+            <input type="number" step="0.01" min="0.01" class="form-control" id="modal-pay-amount" required>
+            <small class="text-muted" style="font-size: 0.75rem;">Cannot exceed current outstanding balance.</small>
+          </div>
+
+          <div class="mb-3">
+            <label for="modal-pay-method" class="form-label">Payment Method <span class="text-danger">*</span></label>
+            <select class="form-select" id="modal-pay-method" required>
+              <option value="cash" selected>Cash</option>
+              <option value="card">Credit / Debit Card</option>
+              <option value="upi">UPI / Online Transfer</option>
+              <option value="bank_transfer">Bank Transfer</option>
+              <option value="cheque">Cheque</option>
+            </select>
+          </div>
+
+          <div class="mb-2">
+            <label for="modal-pay-reference" class="form-label">Transaction Reference (Optional)</label>
+            <input type="text" class="form-control" id="modal-pay-reference" placeholder="e.g. UPI Ref # or Card Slip #">
+          </div>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success px-4" id="record-payment-submit-btn">
+            <i class="bi bi-cash-stack me-1"></i> Confirm & Record Payment
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js"></script>
+<script src="js/common.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/appointment-details.js"></script>
+</body>
+</html>
