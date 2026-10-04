@@ -35,6 +35,12 @@ urlpatterns = [
     ),
 
     path(
+        'token/refresh/',
+        TokenRefreshView.as_view(),
+        name='doctor-token-refresh'
+    ),
+
+    path(
         'dashboard/<int:doctor_id>/',
         doctor_dashboard,
         name='doctor-dashboard'
@@ -82,11 +88,6 @@ urlpatterns = [
         name='create-medical-record'
     ),
 
-    path(
-        'doctor/token/refresh/',
-        TokenRefreshView.as_view(),
-        name='doctor_token_refresh'
-    ),
     path(
         'patients/<int:doctor_id>/search/',
         search_patients,

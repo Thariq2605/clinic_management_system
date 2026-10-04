@@ -6,7 +6,6 @@ from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.models import (
@@ -19,6 +18,8 @@ from core.models import (
     PrescriptionMedicine,
     PrescriptionLabTest,
     MedicalRecord,
+    Medicine,
+    LabTest,
 )
 
 from .serializer import (
@@ -29,15 +30,14 @@ from .serializer import (
     PrescriptionMedicineSerializer,
     PrescriptionLabTestSerializer,
     MedicalRecordSerializer,
-    LabTestSerializer
+    LabTestSerializer,
+    MedicineSerializer,
 )
 
 from doctorapp.permission import IsDoctor
 from django.db.models import Q
 
-from core.models import Medicine
-from .serializer import MedicineSerializer
-from core.models import LabTest
+
 def get_authenticated_doctor(request, doctor_id):
 
     try:
@@ -57,7 +57,6 @@ def get_authenticated_doctor(request, doctor_id):
 
     except Doctor.DoesNotExist:
         return None
-
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsDoctor])
@@ -159,24 +158,27 @@ def doctor_login(request):
         )
 
     refresh = RefreshToken.for_user(user)
-
     refresh['doctor_id'] = doctor.doctor_id
     refresh['role'] = 'doctor'
+
+    # Also set session variables for receptionist-compatible session auth
+    request.session['user_id'] = user.user_id
+    request.session['doctor_id'] = doctor.doctor_id
 
     access_token = refresh.access_token
 
     return Response(
-    {
-        "message": "Doctor login successful",
-        "user_id": user.user_id,
-        "doctor_id": doctor.doctor_id,
-        "doctor_name": staff.full_name,
-        "username": user.username,
-        "access": str(access_token),
-        "refresh": str(refresh)
-    },
-    status=200
-)
+        {
+            "message": "Doctor login successful",
+            "user_id": user.user_id,
+            "doctor_id": doctor.doctor_id,
+            "doctor_name": staff.full_name,
+            "username": user.username,
+            "access": str(access_token),
+            "refresh": str(refresh),
+        },
+        status=200
+    )
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsDoctor])
@@ -291,6 +293,7 @@ def appointment_patient_details(request, doctor_id, appointment_id):
             },
             status=403
         )
+
 
     try:
         appointment = Appointment.objects.select_related(

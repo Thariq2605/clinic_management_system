@@ -50,7 +50,7 @@ function logout() {
     localStorage.removeItem("username");
     localStorage.removeItem("current_appointment_id");
 
-    window.location.href = "login.html";
+    window.location.href = "../login.html";
 }
 
 
@@ -65,7 +65,7 @@ function isLoggedIn() {
 function requireLogin() {
 
     if (!isLoggedIn()) {
-        window.location.href = "login.html";
+        window.location.href = "../login.html";
     }
 }
 

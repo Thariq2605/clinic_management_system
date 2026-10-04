@@ -88,16 +88,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     sidebar.innerHTML = `
         <div class="sidebar-logo">
-
-            <div class="sidebar-logo-icon">
-                +
-            </div>
-
-            <div>
-                <h2>CareFlow</h2>
-                <span>CLINIC SYSTEM</span>
-            </div>
-
+            <img src="../assets/logo-white.svg" alt="MEDICARE" style="height: 38px; display: block; max-width: 100%;">
         </div>
 
         <nav class="sidebar-nav">

@@ -1,0 +1,555 @@
+/* ===================================================================
+   CLINIC MANAGEMENT SYSTEM - RECEPTIONIST MODULE
+   Professional Medical Dashboard Styling
+   =================================================================== */
+
+:root {
+  --primary-color: #0EA5E9;        /* MEDICARE Primary Blue */
+  --primary-hover: #0284C7;        /* MEDICARE Primary Dark */
+  --primary-subtle: #E0F2FE;
+  --secondary-color: #14B8A6;      /* MEDICARE Teal */
+  --secondary-hover: #0F766E;
+  --secondary-subtle: #CCFBF1;
+  --success-color: #10B981;
+  --warning-color: #F59E0B;
+  --danger-color: #EF4444;
+  --sidebar-bg: #0F172A;           /* MEDICARE Deep Navy */
+  --sidebar-hover: #1E293B;
+  --sidebar-active: #0EA5E9;
+  --sidebar-text: #94A3B8;
+  --sidebar-text-active: #FFFFFF;
+  --card-bg: #FFFFFF;
+  --body-bg: #F8FAFC;
+  --text-main: #0F172A;
+  --text-muted: #64748B;
+  --border-color: #E2E8F0;
+  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  --card-shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--body-bg);
+  color: var(--text-main);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* -------------------------------------------------------------
+   Layout Structure
+------------------------------------------------------------- */
+#app-wrapper {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Sidebar */
+#sidebar {
+  width: 260px;
+  background-color: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.25s ease-in-out;
+  z-index: 1040;
+}
+
+#sidebar .sidebar-brand {
+  padding: 1.25rem 1.5rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#sidebar .sidebar-brand img {
+  max-width: 100%;
+  width: auto;
+  height: 38px;
+  display: block;
+}
+
+#sidebar .sidebar-brand i {
+  color: #38bdf8;
+  font-size: 1.5rem;
+}
+
+#sidebar .nav-list {
+  padding: 1rem 0.75rem;
+  list-style: none;
+  margin: 0;
+  flex-grow: 1;
+}
+
+#sidebar .nav-item {
+  margin-bottom: 0.35rem;
+}
+
+#sidebar .nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.7rem 1rem;
+  color: var(--sidebar-text);
+  font-size: 0.925rem;
+  font-weight: 500;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: all 0.15s ease-in-out;
+}
+
+#sidebar .nav-link i {
+  font-size: 1.2rem;
+  width: 1.5rem;
+  text-align: center;
+}
+
+#sidebar .nav-link:hover {
+  background-color: var(--sidebar-hover);
+  color: #ffffff;
+}
+
+#sidebar .nav-link.active {
+  background-color: var(--sidebar-active);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+}
+
+#sidebar .sidebar-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.825rem;
+}
+
+/* Main Content Wrapper */
+#content-wrapper {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background-color: var(--body-bg);
+}
+
+/* Top Navbar */
+.top-navbar {
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.75rem 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+}
+
+.top-navbar .page-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.user-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0284c7, #0f766e);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+/* Main Content Area */
+.main-content {
+  padding: 1.75rem;
+  flex-grow: 1;
+}
+
+/* -------------------------------------------------------------
+   Card Styles & Widgets
+------------------------------------------------------------- */
+.card-custom {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-custom:hover {
+  box-shadow: var(--card-shadow-hover);
+}
+
+.card-stat {
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.card-stat .icon-box {
+  width: 52px;
+  height: 52px;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.icon-box.blue { background-color: #e0f2fe; color: #0284c7; }
+.icon-box.green { background-color: #d1fae5; color: #059669; }
+.icon-box.amber { background-color: #fef3c7; color: #d97706; }
+.icon-box.purple { background-color: #ede9fe; color: #7c3aed; }
+.icon-box.teal { background-color: #ccfbf1; color: #0f766e; }
+
+.stat-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text-main);
+  margin-bottom: 0.15rem;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* -------------------------------------------------------------
+   Tables & Badges
+------------------------------------------------------------- */
+.table-responsive {
+  border-radius: 0.5rem;
+}
+
+.table-custom {
+  margin-bottom: 0;
+  vertical-align: middle;
+}
+
+.table-custom th {
+  background-color: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.825rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-top: none;
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.875rem 1rem;
+}
+
+.table-custom td {
+  padding: 0.875rem 1rem;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-main);
+}
+
+.table-custom tr:hover td {
+  background-color: #f1f5f9;
+}
+
+/* Status Badges */
+.badge-status {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.775rem;
+  font-weight: 600;
+  border-radius: 2rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.badge-scheduled { background-color: #e0f2fe; color: #0284c7; }
+.badge-confirmed { background-color: #ede9fe; color: #7c3aed; }
+.badge-completed { background-color: #d1fae5; color: #059669; }
+.badge-cancelled { background-color: #fee2e2; color: #dc2626; }
+.badge-paid { background-color: #d1fae5; color: #059669; }
+.badge-partial { background-color: #fef3c7; color: #d97706; }
+.badge-pending { background-color: #f1f5f9; color: #64748b; }
+.badge-active { background-color: #d1fae5; color: #059669; }
+.badge-inactive { background-color: #fee2e2; color: #dc2626; }
+
+/* -------------------------------------------------------------
+   Buttons & Forms
+------------------------------------------------------------- */
+.btn-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  font-weight: 500;
+}
+
+.btn-primary:hover, .btn-primary:focus {
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.btn-teal {
+  background-color: var(--secondary-color);
+  border-color: var(--secondary-color);
+  color: #ffffff;
+}
+
+.btn-teal:hover {
+  background-color: #115e59;
+  color: #ffffff;
+}
+
+.form-control, .form-select {
+  border-color: var(--border-color);
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.925rem;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.form-label {
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: #334155;
+  margin-bottom: 0.35rem;
+}
+
+/* -------------------------------------------------------------
+   MEDICARE Login Page Layout
+------------------------------------------------------------- */
+.login-body {
+  background: #0F172A;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  display: flex;
+}
+
+.medicare-login-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.medicare-login-hero {
+  flex: 1.15;
+  background: radial-gradient(circle at 20% 20%, rgba(14, 165, 233, 0.25) 0%, transparent 50%),
+              radial-gradient(circle at 80% 80%, rgba(20, 184, 166, 0.2) 0%, transparent 50%),
+              linear-gradient(145deg, #0F172A 0%, #092445 60%, #023859 100%);
+  color: #FFFFFF;
+  padding: 3.5rem 3.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+
+.medicare-login-hero::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.hero-content {
+  max-width: 480px;
+  z-index: 2;
+}
+
+.hero-headline {
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #FFFFFF;
+  margin-bottom: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.hero-headline span {
+  color: #38BDF8;
+}
+
+.hero-tagline {
+  color: #94A3B8;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+}
+
+.hero-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2rem 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.hero-features li {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-size: 0.95rem;
+  color: #E2E8F0;
+}
+
+.hero-features li i {
+  color: #14B8A6;
+  font-size: 1.2rem;
+  background: rgba(20, 184, 166, 0.15);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hero-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #64748B;
+  font-size: 0.85rem;
+  z-index: 2;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 1.5rem;
+}
+
+.medicare-login-pane {
+  flex: 1;
+  background: #F8FAFC;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem;
+}
+
+.medicare-login-card {
+  width: 100%;
+  max-width: 440px;
+  background: #FFFFFF;
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.06), 0 8px 10px -6px rgba(15, 23, 42, 0.03);
+  border: 1px solid #E2E8F0;
+  padding: 2.5rem;
+}
+
+@media (max-width: 991.98px) {
+  .medicare-login-hero {
+    display: none;
+  }
+  .medicare-login-pane {
+    background: radial-gradient(circle at top right, #E0F2FE 0%, #F8FAFC 50%, #F1F5F9 100%);
+    padding: 1.5rem;
+  }
+}
+
+/* -------------------------------------------------------------
+   Toasts & Modals
+------------------------------------------------------------- */
+.toast-container {
+  z-index: 1090;
+}
+
+.modal-content {
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  border-bottom: 1px solid var(--border-color);
+  padding: 1rem 1.5rem;
+}
+
+.modal-footer {
+  border-top: 1px solid var(--border-color);
+  padding: 1rem 1.5rem;
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  color: var(--text-muted);
+}
+
+.empty-state i {
+  font-size: 3rem;
+  color: #cbd5e1;
+  margin-bottom: 0.75rem;
+}
+
+/* -------------------------------------------------------------
+   Responsive Breakpoints
+------------------------------------------------------------- */
+@media (max-width: 991.98px) {
+  #sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: -270px;
+  }
+
+  #sidebar.show {
+    left: 0;
+  }
+
+  #sidebar-backdrop {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1035;
+  }
+
+  #sidebar-backdrop.show {
+    display: block;
+  }
+
+  .main-content {
+    padding: 1rem;
+  }
+
+  .top-navbar {
+    padding: 0.75rem 1rem;
+  }
+}

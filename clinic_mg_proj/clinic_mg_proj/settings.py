@@ -13,6 +13,7 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 from datetime import timedelta
+
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -61,9 +62,17 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-
+# CORS Configuration — required for receptionist frontend (http://127.0.0.1:5500 / localhost:5500)
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5500",
+    "http://localhost:5500",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
 ]
 
 ROOT_URLCONF = 'clinic_mg_proj.urls'
