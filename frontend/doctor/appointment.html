@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>MEDICARE - Today's Appointments</title>
+    <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+<div class="app-container">
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="sidebar">
+
+        <div class="sidebar-logo">
+            <img src="../assets/logo-white.svg" alt="MEDICARE" style="height: 38px; display: block; max-width: 100%;">
+        </div>
+
+        <nav class="sidebar-nav">
+
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">⌂</span>
+                <span>Dashboard</span>
+            </a>
+
+            <a href="appointment.html" class="nav-item active">
+                <span class="nav-icon">▣</span>
+                <span>Appointments</span>
+            </a>
+
+            <a href="patients.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Patients</span>
+            </a>
+
+            <a href="medicalhistory.html" class="nav-item">
+                <span class="nav-icon">▤</span>
+                <span>Medical History</span>
+            </a>
+
+        </nav>
+
+        <div class="sidebar-bottom">
+
+            <a href="#" class="nav-item">
+                <span class="nav-icon">⚙</span>
+                <span>Settings</span>
+            </a>
+
+            <a href="#" class="nav-item logout-link" onclick="logout()">
+                <span class="nav-icon">↪</span>
+                <span>Logout</span>
+            </a>
+
+        </div>
+
+    </aside>
+
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+        <!-- TOP BAR -->
+        <header class="topbar">
+
+            <div class="search-box">
+                <span>⌕</span>
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search appointments..."
+                >
+            </div>
+
+            <div class="doctor-profile">
+
+                <div class="notification">
+                    ♢
+                </div>
+
+                <div class="doctor-avatar">
+                    DR
+                </div>
+
+                <div class="doctor-info">
+                    <strong id="doctorName">Doctor</strong>
+                    <span>Doctor</span>
+                </div>
+
+                <span class="profile-arrow">⌄</span>
+
+            </div>
+
+        </header>
+
+
+        <!-- PAGE CONTENT -->
+        <section class="page-content">
+
+            <div class="page-header">
+
+                <div>
+                    <h1>Today's Appointments</h1>
+
+                    <p>
+                        View and manage your appointments for today
+                    </p>
+                </div>
+
+                <button
+                    class="primary-btn"
+                    onclick="loadAppointments()"
+                >
+                    ↻ Refresh
+                </button>
+
+            </div>
+
+
+            <!-- DATE -->
+            <div class="date-card">
+
+                <div class="date-icon">
+                    ▣
+                </div>
+
+                <div>
+                    <span class="date-label">TODAY</span>
+                    <strong id="todayDate">Loading...</strong>
+                </div>
+
+            </div>
+
+
+            <!-- STAT CARDS -->
+            <div class="appointment-stats">
+
+                <div class="mini-stat">
+                    <span class="mini-stat-label">
+                        Total Appointments
+                    </span>
+
+                    <strong id="totalAppointments">
+                        0
+                    </strong>
+                </div>
+
+                <div class="mini-stat">
+                    <span class="mini-stat-label">
+                        Scheduled
+                    </span>
+
+                    <strong id="scheduledAppointments">
+                        0
+                    </strong>
+                </div>
+
+                <div class="mini-stat">
+                    <span class="mini-stat-label">
+                        Confirmed
+                    </span>
+
+                    <strong id="confirmedAppointments">
+                        0
+                    </strong>
+                </div>
+
+                <div class="mini-stat">
+                    <span class="mini-stat-label">
+                        Completed
+                    </span>
+
+                    <strong id="completedAppointments">
+                        0
+                    </strong>
+                </div>
+
+            </div>
+
+
+            <!-- APPOINTMENT TABLE -->
+            <div class="content-card">
+
+                <div class="card-header">
+
+                    <div>
+                        <h2>Appointment List</h2>
+
+                        <p>
+                            Today's patient appointments
+                        </p>
+                    </div>
+
+                    <span
+                        class="appointment-count"
+                        id="appointmentCount"
+                    >
+                        0 appointments
+                    </span>
+
+                </div>
+
+
+                <!-- LOADING -->
+                <div
+                    id="loadingMessage"
+                    class="loading-message"
+                >
+                    Loading appointments...
+                </div>
+
+
+                <!-- ERROR -->
+                <div
+                    id="errorMessage"
+                    class="error-message"
+                    style="display:none;"
+                ></div>
+
+
+                <!-- EMPTY -->
+                <div
+                    id="emptyMessage"
+                    class="empty-message"
+                    style="display:none;"
+                >
+                    <div class="empty-icon">▣</div>
+
+                    <h3>No appointments today</h3>
+
+                    <p>
+                        There are no appointments assigned to you today.
+                    </p>
+                </div>
+
+
+                <!-- TABLE -->
+                <div
+                    id="tableContainer"
+                    class="table-container"
+                    style="display:none;"
+                >
+
+                    <table>
+
+                        <thead>
+                            <tr>
+                                <th>Token</th>
+                                <th>Patient ID</th>
+                                <th>Patient Name</th>
+                                <th>Appointment Time</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="appointmentTableBody">
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<script src="js/auth.js"></script>
+<script src="js/appointment.js"></script>
+<script src="js/sidebar.js"></script>
+
+</body>
+</html>

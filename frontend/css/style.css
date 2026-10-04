@@ -4,24 +4,25 @@
    =================================================================== */
 
 :root {
-  --primary-color: #0284c7;        /* Medical Sky Blue */
-  --primary-hover: #0369a1;
-  --primary-subtle: #e0f2fe;
-  --secondary-color: #0f766e;      /* Medical Teal */
-  --secondary-subtle: #ccfbf1;
-  --success-color: #10b981;
-  --warning-color: #f59e0b;
-  --danger-color: #ef4444;
-  --sidebar-bg: #0f172a;           /* Deep Slate Navy */
-  --sidebar-hover: #1e293b;
-  --sidebar-active: #0284c7;
-  --sidebar-text: #94a3b8;
-  --sidebar-text-active: #ffffff;
-  --card-bg: #ffffff;
-  --body-bg: #f8fafc;
-  --text-main: #1e293b;
-  --text-muted: #64748b;
-  --border-color: #e2e8f0;
+  --primary-color: #0EA5E9;        /* MEDICARE Primary Blue */
+  --primary-hover: #0284C7;        /* MEDICARE Primary Dark */
+  --primary-subtle: #E0F2FE;
+  --secondary-color: #14B8A6;      /* MEDICARE Teal */
+  --secondary-hover: #0F766E;
+  --secondary-subtle: #CCFBF1;
+  --success-color: #10B981;
+  --warning-color: #F59E0B;
+  --danger-color: #EF4444;
+  --sidebar-bg: #0F172A;           /* MEDICARE Deep Navy */
+  --sidebar-hover: #1E293B;
+  --sidebar-active: #0EA5E9;
+  --sidebar-text: #94A3B8;
+  --sidebar-text-active: #FFFFFF;
+  --card-bg: #FFFFFF;
+  --body-bg: #F8FAFC;
+  --text-main: #0F172A;
+  --text-muted: #64748B;
+  --border-color: #E2E8F0;
   --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
   --card-shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
 }
@@ -66,6 +67,13 @@ body {
   align-items: center;
   gap: 0.75rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#sidebar .sidebar-brand img {
+  max-width: 100%;
+  width: auto;
+  height: 38px;
+  display: block;
 }
 
 #sidebar .sidebar-brand i {
@@ -330,44 +338,145 @@ body {
 }
 
 /* -------------------------------------------------------------
-   Login Page Specific
+   MEDICARE Login Page Layout
 ------------------------------------------------------------- */
 .login-body {
-  background: radial-gradient(circle at top right, #e0f2fe 0%, #f8fafc 50%, #f1f5f9 100%);
+  background: #0F172A;
   min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  display: flex;
+}
+
+.medicare-login-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.medicare-login-hero {
+  flex: 1.15;
+  background: radial-gradient(circle at 20% 20%, rgba(14, 165, 233, 0.25) 0%, transparent 50%),
+              radial-gradient(circle at 80% 80%, rgba(20, 184, 166, 0.2) 0%, transparent 50%),
+              linear-gradient(145deg, #0F172A 0%, #092445 60%, #023859 100%);
+  color: #FFFFFF;
+  padding: 3.5rem 3.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+}
+
+.medicare-login-hero::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  right: -50%;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.hero-content {
+  max-width: 480px;
+  z-index: 2;
+}
+
+.hero-headline {
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1.25;
+  color: #FFFFFF;
+  margin-bottom: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.hero-headline span {
+  color: #38BDF8;
+}
+
+.hero-tagline {
+  color: #94A3B8;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+}
+
+.hero-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2rem 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.hero-features li {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-size: 0.95rem;
+  color: #E2E8F0;
+}
+
+.hero-features li i {
+  color: #14B8A6;
+  font-size: 1.2rem;
+  background: rgba(20, 184, 166, 0.15);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem;
+  flex-shrink: 0;
 }
 
-.login-card {
-  width: 100%;
-  max-width: 440px;
-  background: #ffffff;
-  border-radius: 1rem;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
-  border: 1px solid var(--border-color);
-  padding: 2.25rem;
+.hero-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #64748B;
+  font-size: 0.85rem;
+  z-index: 2;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 1.5rem;
 }
 
-.login-brand {
-  text-align: center;
-  margin-bottom: 1.75rem;
-}
-
-.login-brand .brand-icon {
-  width: 58px;
-  height: 58px;
-  border-radius: 1rem;
-  background: linear-gradient(135deg, #0284c7, #0f766e);
-  color: #ffffff;
-  display: inline-flex;
+.medicare-login-pane {
+  flex: 1;
+  background: #F8FAFC;
+  display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.85rem;
-  margin-bottom: 0.75rem;
-  box-shadow: 0 10px 15px -3px rgba(2, 132, 199, 0.3);
+  padding: 2.5rem;
+}
+
+.medicare-login-card {
+  width: 100%;
+  max-width: 440px;
+  background: #FFFFFF;
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.06), 0 8px 10px -6px rgba(15, 23, 42, 0.03);
+  border: 1px solid #E2E8F0;
+  padding: 2.5rem;
+}
+
+@media (max-width: 991.98px) {
+  .medicare-login-hero {
+    display: none;
+  }
+  .medicare-login-pane {
+    background: radial-gradient(circle at top right, #E0F2FE 0%, #F8FAFC 50%, #F1F5F9 100%);
+    padding: 1.5rem;
+  }
 }
 
 /* -------------------------------------------------------------

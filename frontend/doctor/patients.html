@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>MEDICARE - Patients</title>
+    <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+<div class="app-container">
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="sidebar">
+
+        <div class="sidebar-logo">
+            <img src="../assets/logo-white.svg" alt="MEDICARE" style="height: 38px; display: block; max-width: 100%;">
+        </div>
+
+
+        <nav class="sidebar-nav">
+
+            <a href="dashboard.html" class="nav-item">
+                <span class="nav-icon">⌂</span>
+                <span>Dashboard</span>
+            </a>
+
+            <a href="appointment.html" class="nav-item">
+                <span class="nav-icon">▣</span>
+                <span>Appointments</span>
+            </a>
+
+            <a href="patients.html" class="nav-item active">
+                <span class="nav-icon">♙</span>
+                <span>Patients</span>
+            </a>
+
+            <a href="medicalhistory.html" class="nav-item">
+                <span class="nav-icon">▤</span>
+                <span>Medical History</span>
+            </a>
+
+            <a href="consultation.html" class="nav-item">
+                <span class="nav-icon">▤</span>
+                <span>Medical History</span>
+            </a>
+
+
+        </nav>
+
+
+        <div class="sidebar-bottom">
+
+            <a href="#" class="nav-item">
+                <span class="nav-icon">⚙</span>
+                <span>Settings</span>
+            </a>
+
+            <a
+                href="#"
+                class="nav-item"
+                onclick="logout()"
+            >
+                <span class="nav-icon">↪</span>
+                <span>Logout</span>
+            </a>
+
+        </div>
+
+    </aside>
+
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+        <!-- TOP BAR -->
+        <header class="topbar">
+
+            <div class="search-box">
+
+                <span>⌕</span>
+
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search patients..."
+                >
+
+            </div>
+
+
+            <div class="doctor-profile">
+
+                <div class="notification">
+                    ♢
+                </div>
+
+                <div class="doctor-avatar">
+                    DR
+                </div>
+
+                <div class="doctor-info">
+
+                    <strong id="doctorName">
+                        Doctor
+                    </strong>
+
+                    <span>Doctor</span>
+
+                </div>
+
+                <span class="profile-arrow">⌄</span>
+
+            </div>
+
+        </header>
+
+
+        <!-- PAGE -->
+        <section class="page-content">
+
+            <div class="patient-page-header">
+
+                <div>
+
+                    <div class="breadcrumb">
+                        Dashboard / Patients
+                    </div>
+
+                    <h1>Patients</h1>
+
+                    <p>
+                        Search for a patient by ID, name or phone number
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <!-- SEARCH CARD -->
+            <div class="details-card">
+
+                <div class="details-card-header">
+
+                    <div>
+
+                        <h2>Search Patient</h2>
+
+                        <p>
+                            Enter Patient ID, patient name or phone number
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div style="padding: 20px;">
+
+                    <div style="
+                        display:flex;
+                        gap:12px;
+                    ">
+
+                        <input
+                            type="text"
+                            id="patientSearch"
+                            placeholder="Patient ID, name or phone number"
+                            style="
+                                flex:1;
+                                padding:13px;
+                                border:1px solid #d9e1ec;
+                                border-radius:8px;
+                                font-size:14px;
+                            "
+                        >
+
+                        <button
+                            class="primary-btn"
+                            onclick="searchPatients()"
+                        >
+                            Search
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- LOADING -->
+            <div
+                id="loadingMessage"
+                class="patient-loading"
+                style="display:none;"
+            >
+                Searching patients...
+            </div>
+
+
+            <!-- ERROR -->
+            <div
+                id="errorMessage"
+                class="error-message"
+                style="display:none;"
+            ></div>
+
+
+            <!-- RESULTS -->
+            <div
+                id="resultsCard"
+                class="details-card"
+                style="display:none;"
+            >
+
+                <div class="details-card-header">
+
+                    <div>
+
+                        <h2>Search Results</h2>
+
+                        <p id="resultText">
+                            Matching patients
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div id="resultsContainer"></div>
+
+            </div>
+
+
+            <!-- NO RESULTS -->
+            <div
+                id="noResults"
+                class="details-card"
+                style="
+                    display:none;
+                    padding:40px;
+                    text-align:center;
+                "
+            >
+
+                <h2>No patients found</h2>
+
+                <p>
+                    No patient matches your search.
+                </p>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<script src="js/auth.js"></script>
+<script src="js/patients.js"></script>
+<script src="js/sidebar.js"></script>
+</body>
+
+</html>

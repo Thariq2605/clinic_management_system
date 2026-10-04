@@ -246,6 +246,12 @@ function getActiveStatusBadge(isActive) {
  * Initialize Layout Components (Sidebar toggle, active links, user info)
  */
 function setupLayout() {
+  // Ensure sidebar brand displays MEDICARE logo consistently
+  const sidebarBrand = document.querySelector("#sidebar .sidebar-brand");
+  if (sidebarBrand && (!sidebarBrand.querySelector("img") || !sidebarBrand.querySelector("img").src.includes("logo-white.svg"))) {
+    sidebarBrand.innerHTML = `<img src="assets/logo-white.svg" alt="MEDICARE" height="38" width="182" style="height: 38px; width: auto; max-width: 100%; display: block;">`;
+  }
+
   // Populate logged-in user in navbar
   const storedUser = sessionStorage.getItem("clinic_user");
   if (storedUser) {
@@ -263,12 +269,22 @@ function setupLayout() {
     }
   }
 
-  // Highlight active sidebar navigation link
+  // Unify user role subtitle in navbar
+  const userRoleEls = document.querySelectorAll(".top-navbar .user-badge small");
+  userRoleEls.forEach((el) => {
+    el.textContent = "Reception Desk";
+  });
+
+  // Highlight active sidebar navigation link (including detail views)
   const currentPath = window.location.pathname.toLowerCase().split("/").pop() || "dashboard.html";
+  let targetNav = currentPath;
+  if (currentPath === "patient-details.html") targetNav = "patients.html";
+  if (currentPath === "appointment-details.html") targetNav = "appointments.html";
+
   const navLinks = document.querySelectorAll("#sidebar .nav-link");
   navLinks.forEach((link) => {
     const href = link.getAttribute("href");
-    if (href && (href === currentPath || (currentPath === "" && href === "dashboard.html"))) {
+    if (href && (href === targetNav || (targetNav === "" && href === "dashboard.html"))) {
       link.classList.add("active");
     } else {
       link.classList.remove("active");

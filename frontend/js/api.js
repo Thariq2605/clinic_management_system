@@ -6,6 +6,7 @@
 
 const API_BASE = "http://127.0.0.1:8000/api/receptionist";
 const API_BASE_URL = API_BASE;
+const COMMON_API_BASE = "http://127.0.0.1:8000/api";
 
 class ApiError extends Error {
   constructor(message, status, data = null) {
@@ -20,11 +21,12 @@ let cachedCsrfToken = null;
 
 /**
  * Fetch a fresh CSRF token from Django
- * GET /api/receptionist/csrf/
+ * GET /api/csrf/ (with fallback to /api/receptionist/csrf/)
  */
-async function fetchCsrfToken() {
+async function fetchCsrfToken(customUrl = null) {
+  const targetUrl = customUrl || `${COMMON_API_BASE}/csrf/`;
   try {
-    const response = await fetch(`${API_BASE}/csrf/`, {
+    const response = await fetch(targetUrl, {
       method: "GET",
       credentials: "include",
       headers: {
@@ -33,6 +35,10 @@ async function fetchCsrfToken() {
     });
 
     if (!response.ok) {
+      // Fallback to receptionist csrf endpoint if custom URL was not specified
+      if (!customUrl) {
+        return await fetchCsrfToken(`${API_BASE}/csrf/`);
+      }
       throw new Error(`Failed to fetch CSRF token (${response.status})`);
     }
 
@@ -111,17 +117,22 @@ async function apiRequest(endpoint, options = {}) {
     }
 
     if (!response.ok) {
-      // 401 Unauthorized: session expired
+      // 401 Unauthorized
       if (response.status === 401) {
-        sessionStorage.removeItem("clinic_user");
-        sessionStorage.removeItem("clinic_csrf_token");
-        cachedCsrfToken = null;
-
         const currentPath = window.location.pathname.toLowerCase();
-        if (!currentPath.endsWith("login.html")) {
+        const onLoginPage = currentPath.endsWith("login.html");
+
+        if (!onLoginPage) {
+          // Session expired on a protected page — clear state and redirect
+          sessionStorage.removeItem("clinic_user");
+          sessionStorage.removeItem("clinic_csrf_token");
+          cachedCsrfToken = null;
           window.location.href = "login.html?expired=1";
         }
-        throw new ApiError("Session expired. Please login again.", 401, responseData);
+        // On the login page, pass the error data through so the caller
+        // can display the correct "Invalid username or password" message.
+        const errMsg = extractErrorMessage(responseData, 401) || "Invalid username or password.";
+        throw new ApiError(errMsg, 401, responseData);
       }
 
       // 403 Forbidden
