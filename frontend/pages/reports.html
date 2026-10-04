@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Reports | ClinixOne</title>
+
+    <!-- ClinixOne custom CSS -->
+    <link rel="stylesheet" href="../css/admin.css">
+
+    <style>
+        .reports-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .date-filter {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .date-filter select,
+        .date-filter input {
+            height: 34px;
+            border: 1px solid #e1e8f0;
+            border-radius: 6px;
+            padding: 0 10px;
+            background: #ffffff;
+            color: #526276;
+            font-size: 9px;
+        }
+
+        .report-btn {
+            height: 34px;
+            padding: 0 14px;
+            border: none;
+            border-radius: 6px;
+            background: #1769e8;
+            color: #ffffff;
+            font-size: 9px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .report-btn:hover {
+            background: #0f5fd6;
+        }
+
+        .report-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+
+        .report-stat {
+            background: #ffffff;
+            border: 1px solid #e1e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 2px 10px rgba(20, 55, 90, 0.05);
+        }
+
+        .report-stat-label {
+            color: #718096;
+            font-size: 8px;
+            margin-bottom: 8px;
+        }
+
+        .report-stat-value {
+            color: #17263a;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .report-stat-change {
+            color: #15966b;
+            font-size: 7px;
+            margin-top: 5px;
+        }
+
+        .report-stat-change.warning {
+            color: #e99a22;
+        }
+
+        .report-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+
+        .report-card {
+            background: #ffffff;
+            border: 1px solid #e1e8f0;
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: 0 2px 10px rgba(20, 55, 90, 0.05);
+        }
+
+        .report-card.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .report-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .report-card-header h3 {
+            margin: 0;
+            color: #17263a;
+            font-size: 11px;
+        }
+
+        .report-card-header span {
+            color: #718096;
+            font-size: 7px;
+        }
+
+        /* Revenue Chart */
+
+        .revenue-chart {
+            height: 210px;
+            display: flex;
+            align-items: flex-end;
+            gap: 16px;
+            padding: 15px 10px 5px;
+            border-bottom: 1px solid #e1e8f0;
+        }
+
+        .revenue-column {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 4px;
+        }
+
+        .revenue-bar {
+            width: 24px;
+            border-radius: 4px 4px 0 0;
+        }
+
+        .revenue-bar.total {
+            height: 75%;
+            background: #1769e8;
+        }
+
+        .revenue-bar.paid {
+            height: 55%;
+            background: #15966b;
+        }
+
+        .month-labels {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 8px;
+            color: #718096;
+            font-size: 7px;
+        }
+
+        .chart-legend {
+            display: flex;
+            gap: 16px;
+            margin-top: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #718096;
+            font-size: 7px;
+        }
+
+        .legend-box {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+        }
+
+        .legend-box.blue {
+            background: #1769e8;
+        }
+
+        .legend-box.green {
+            background: #15966b;
+        }
+
+        /* Appointment Statistics */
+
+        .appointment-stat-row {
+            margin-bottom: 16px;
+        }
+
+        .appointment-stat-top {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        .appointment-stat-name {
+            color: #526276;
+            font-size: 8px;
+        }
+
+        .appointment-stat-number {
+            color: #17263a;
+            font-size: 8px;
+            font-weight: 700;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #edf2f7;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 10px;
+        }
+
+        .progress-blue {
+            width: 78%;
+            background: #1769e8;
+        }
+
+        .progress-green {
+            width: 64%;
+            background: #15966b;
+        }
+
+        .progress-orange {
+            width: 28%;
+            background: #e99a22;
+        }
+
+        .progress-red {
+            width: 12%;
+            background: #df5366;
+        }
+
+        /* Patient / Doctor Cards */
+
+        .mini-stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .mini-stat {
+            background: #f8fafc;
+            border-radius: 7px;
+            padding: 14px;
+        }
+
+        .mini-stat-label {
+            color: #718096;
+            font-size: 7px;
+            margin-bottom: 6px;
+        }
+
+        .mini-stat-value {
+            color: #17263a;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        /* Payment Overview */
+
+        .payment-overview {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
+        }
+
+        .donut {
+            width: 145px;
+            height: 145px;
+            border-radius: 50%;
+            background:
+                conic-gradient(
+                    #15966b 0deg 220deg,
+                    #e99a22 220deg 310deg,
+                    #df5366 310deg 360deg
+                );
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .donut-inner {
+            width: 95px;
+            height: 95px;
+            border-radius: 50%;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .donut-inner strong {
+            color: #17263a;
+            font-size: 15px;
+        }
+
+        .donut-inner span {
+            color: #718096;
+            font-size: 7px;
+        }
+
+        .payment-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .payment-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .payment-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .payment-dot.green {
+            background: #15966b;
+        }
+
+        .payment-dot.orange {
+            background: #e99a22;
+        }
+
+        .payment-dot.red {
+            background: #df5366;
+        }
+
+        .payment-item-text {
+            color: #526276;
+            font-size: 8px;
+        }
+
+        .payment-item-value {
+            color: #17263a;
+            font-size: 8px;
+            font-weight: 700;
+            margin-left: 4px;
+        }
+
+        /* Department Table */
+
+        .department-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .department-table th {
+            text-align: left;
+            padding: 9px;
+            border-bottom: 1px solid #e1e8f0;
+            color: #718096;
+            font-size: 7px;
+        }
+
+        .department-table td {
+            padding: 10px 9px;
+            border-bottom: 1px solid #edf2f7;
+            color: #526276;
+            font-size: 8px;
+        }
+
+        .department-table td strong {
+            color: #17263a;
+        }
+
+        .department-status {
+            color: #15966b;
+            font-size: 7px;
+            font-weight: 700;
+        }
+
+        @media (max-width: 1100px) {
+
+            .report-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .report-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .report-card.full-width {
+                grid-column: auto;
+            }
+        }
+
+        @media (max-width: 650px) {
+
+            .report-stats {
+                grid-template-columns: 1fr;
+            }
+
+            .reports-top {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+
+            .date-filter {
+                flex-wrap: wrap;
+            }
+
+            .payment-overview {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+
+<body>
+
+<div class="admin-layout">
+
+
+    <!-- ================= SIDEBAR ================= -->
+
+    <aside class="sidebar">
+
+        <div class="sidebar-logo">
+
+            <div class="logo-icon">
+                +
+            </div>
+
+            <div class="logo-text">
+
+                <h2>CLINIC SYSTEM</h2>
+
+                <span>
+                    HEALTHCARE MANAGEMENT
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <nav class="sidebar-nav">
+
+            <a href="admin_dashboard.html" class="nav-item">
+                <span class="nav-icon">⌂</span>
+                <span>Dashboard</span>
+            </a>
+
+            <a href="users.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Users</span>
+            </a>
+
+            <a href="doctors.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Doctors</span>
+            </a>
+
+            <a href="receptionists.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Receptionists</span>
+            </a>
+
+            <a href="patients.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Patients</span>
+            </a>
+
+            <a href="departments.html" class="nav-item">
+                <span class="nav-icon">▦</span>
+                <span>Departments</span>
+            </a>
+
+            <a href="specializations.html" class="nav-item">
+                <span class="nav-icon">✦</span>
+                <span>Specializations</span>
+            </a>
+
+            <a href="medicines.html" class="nav-item">
+                <span class="nav-icon">▣</span>
+                <span>Medicines</span>
+            </a>
+
+            <a href="lab_tests.html" class="nav-item">
+                <span class="nav-icon">⚗</span>
+                <span>Lab Tests</span>
+            </a>
+
+            <a href="appointments.html" class="nav-item">
+                <span class="nav-icon">□</span>
+                <span>Appointments</span>
+            </a>
+
+            <a href="billing.html" class="nav-item">
+                <span class="nav-icon">▤</span>
+                <span>Billing</span>
+            </a>
+
+            <a href="payments.html" class="nav-item">
+                <span class="nav-icon">◉</span>
+                <span>Payments</span>
+            </a>
+
+            <a href="reports.html" class="nav-item active">
+                <span class="nav-icon">▥</span>
+                <span>Reports</span>
+            </a>
+
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙</span>
+                <span>Settings</span>
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-footer">
+            ClinixOne Admin Panel<br>
+            Version 1.0
+        </div>
+
+    </aside>
+
+
+    <!-- ================= MAIN CONTENT ================= -->
+
+    <main class="main-content">
+
+
+        <!-- HEADER -->
+
+        <header class="top-header">
+
+            <div class="breadcrumb">
+
+                <span>Admin</span>
+                <span>/</span>
+                <strong>Reports</strong>
+
+            </div>
+
+
+            <div class="header-right">
+
+                <div class="search-box">
+
+                    <span>⌕</span>
+
+                    <input
+                        type="text"
+                        placeholder="Search..."
+                    >
+
+                    <small>Ctrl K</small>
+
+                </div>
+
+
+                <button class="notification-btn">
+                    ♧
+                </button>
+
+
+                <div class="profile">
+
+                    <div class="profile-avatar">
+                        AM
+                    </div>
+
+                    <span class="profile-name">
+                        Ava Morgan
+                    </span>
+
+                </div>
+
+            </div>
+
+        </header>
+
+
+        <!-- ================= PAGE CONTENT ================= -->
+
+        <section class="dashboard-content">
+
+
+            <!-- PAGE HEADING -->
+
+            <div class="page-heading">
+
+                <div>
+
+                    <h1>
+                        Reports
+                    </h1>
+
+                    <p>
+                        View clinic performance and operational statistics.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================= REPORT FILTER ================= -->
+
+            <div class="reports-top">
+
+                <div class="date-filter">
+
+                    <select id="reportPeriod">
+
+                        <option value="month">
+                            This Month
+                        </option>
+
+                        <option value="week">
+                            This Week
+                        </option>
+
+                        <option value="quarter">
+                            This Quarter
+                        </option>
+
+                        <option value="year">
+                            This Year
+                        </option>
+
+                    </select>
+
+
+                    <input
+                        type="date"
+                        id="reportDate"
+                    >
+
+                </div>
+
+
+                <button
+                    class="report-btn"
+                    id="generateReport"
+                >
+                    Generate Report
+                </button>
+
+            </div>
+
+
+            <!-- ================= STATISTICS ================= -->
+
+            <div class="report-stats">
+
+
+                <div class="report-stat">
+
+                    <div class="report-stat-label">
+                        TOTAL REVENUE
+                    </div>
+
+                    <div class="report-stat-value" id="statTotalRevenue">
+                        ₹0.00
+                    </div>
+
+                    <div class="report-stat-change" id="statRevChangeNote">
+                        Total billed in period
+                    </div>
+
+                </div>
+
+
+                <div class="report-stat">
+
+                    <div class="report-stat-label">
+                        TOTAL APPOINTMENTS
+                    </div>
+
+                    <div class="report-stat-value" id="statTotalAppointments">
+                        0
+                    </div>
+
+                    <div class="report-stat-change" id="statAptChangeNote">
+                        In selected period
+                    </div>
+
+                </div>
+
+
+                <div class="report-stat">
+
+                    <div class="report-stat-label">
+                        TOTAL PATIENTS
+                    </div>
+
+                    <div class="report-stat-value" id="statTotalPatients">
+                        0
+                    </div>
+
+                    <div class="report-stat-change">
+                        All active patients
+                    </div>
+
+                </div>
+
+
+                <div class="report-stat">
+
+                    <div class="report-stat-label">
+                        PENDING PAYMENTS
+                    </div>
+
+                    <div class="report-stat-value" id="statPendingPayments">
+                        ₹0.00
+                    </div>
+
+                    <div class="report-stat-change warning">
+                        Billed but uncollected
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================= REPORT GRID ================= -->
+
+            <div class="report-grid">
+
+
+                <!-- REVENUE -->
+
+                <div class="report-card">
+
+                    <div class="report-card-header">
+
+                        <h3>
+                            Revenue Overview
+                        </h3>
+
+                        <span>
+                            Monthly
+                        </span>
+
+                    </div>
+
+
+                    <div class="revenue-chart">
+
+                        <div class="revenue-column">
+
+                            <div class="revenue-bar total"></div>
+                            <div class="revenue-bar paid"></div>
+
+                        </div>
+
+                        <div class="revenue-column">
+
+                            <div class="revenue-bar total" style="height: 60%;"></div>
+                            <div class="revenue-bar paid" style="height: 45%;"></div>
+
+                        </div>
+
+                        <div class="revenue-column">
+
+                            <div class="revenue-bar total" style="height: 72%;"></div>
+                            <div class="revenue-bar paid" style="height: 54%;"></div>
+
+                        </div>
+
+                        <div class="revenue-column">
+
+                            <div class="revenue-bar total" style="height: 82%;"></div>
+                            <div class="revenue-bar paid" style="height: 64%;"></div>
+
+                        </div>
+
+                        <div class="revenue-column">
+
+                            <div class="revenue-bar total" style="height: 68%;"></div>
+                            <div class="revenue-bar paid" style="height: 50%;"></div>
+
+                        </div>
+
+                        <div class="revenue-column">
+
+                            <div class="revenue-bar total" style="height: 92%;"></div>
+                            <div class="revenue-bar paid" style="height: 72%;"></div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="month-labels">
+
+                        <span>Apr</span>
+                        <span>May</span>
+                        <span>Jun</span>
+                        <span>Jul</span>
+                        <span>Aug</span>
+                        <span>Sep</span>
+
+                    </div>
+
+
+                    <div class="chart-legend">
+
+                        <div class="legend-item">
+
+                            <span class="legend-box blue"></span>
+
+                            Total Billed
+
+                        </div>
+
+                        <div class="legend-item">
+
+                            <span class="legend-box green"></span>
+
+                            Collected
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- APPOINTMENT STATISTICS -->
+
+                <div class="report-card">
+
+                    <div class="report-card-header">
+
+                        <h3>
+                            Appointment Statistics
+                        </h3>
+
+                        <span id="aptTotalLabel">
+                            0 total
+                        </span>
+
+                    </div>
+
+
+                    <div class="appointment-stat-row">
+
+                        <div class="appointment-stat-top">
+
+                            <span class="appointment-stat-name">
+                                Completed
+                            </span>
+
+                            <span class="appointment-stat-number" id="aptCompleted">
+                                0
+                            </span>
+
+                        </div>
+
+                        <div class="progress-bar">
+                            <div class="progress-fill progress-blue" id="aptCompletedBar" style="width:0%"></div>
+                        </div>
+
+                    </div>
+
+
+                    <div class="appointment-stat-row">
+
+                        <div class="appointment-stat-top">
+
+                            <span class="appointment-stat-name">
+                                Scheduled
+                            </span>
+
+                            <span class="appointment-stat-number" id="aptScheduled">
+                                0
+                            </span>
+
+                        </div>
+
+                        <div class="progress-bar">
+                            <div class="progress-fill progress-green" id="aptScheduledBar" style="width:0%"></div>
+                        </div>
+
+                    </div>
+
+
+                    <div class="appointment-stat-row">
+
+                        <div class="appointment-stat-top">
+
+                            <span class="appointment-stat-name">
+                                Pending
+                            </span>
+
+                            <span class="appointment-stat-number" id="aptPending">
+                                0
+                            </span>
+
+                        </div>
+
+                        <div class="progress-bar">
+                            <div class="progress-fill progress-orange" id="aptPendingBar" style="width:0%"></div>
+                        </div>
+
+                    </div>
+
+
+                    <div class="appointment-stat-row">
+
+                        <div class="appointment-stat-top">
+
+                            <span class="appointment-stat-name">
+                                Cancelled
+                            </span>
+
+                            <span class="appointment-stat-number" id="aptCancelled">
+                                0
+                            </span>
+
+                        </div>
+
+                        <div class="progress-bar">
+                            <div class="progress-fill progress-red" id="aptCancelledBar" style="width:0%"></div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- PATIENT STATISTICS -->
+
+                <div class="report-card">
+
+                    <div class="report-card-header">
+
+                        <h3>
+                            Patient Statistics
+                        </h3>
+
+                        <span>
+                            This Month
+                        </span>
+
+                    </div>
+
+
+                    <div class="mini-stat-grid">
+
+                        <div class="mini-stat">
+
+                            <div class="mini-stat-label">
+                                TOTAL PATIENTS
+                            </div>
+
+                            <div class="mini-stat-value" id="patTotal">
+                                0
+                            </div>
+
+                        </div>
+
+
+                        <div class="mini-stat">
+
+                            <div class="mini-stat-label">
+                                MALE
+                            </div>
+
+                            <div class="mini-stat-value" id="patMale">
+                                0
+                            </div>
+
+                        </div>
+
+
+                        <div class="mini-stat">
+
+                            <div class="mini-stat-label">
+                                FEMALE
+                            </div>
+
+                            <div class="mini-stat-value" id="patFemale">
+                                0
+                            </div>
+
+                        </div>
+
+
+                        <div class="mini-stat">
+
+                            <div class="mini-stat-label">
+                                OTHER
+                            </div>
+
+                            <div class="mini-stat-value" id="patOther">
+                                0
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- DOCTOR STATISTICS -->
+
+                <div class="report-card">
+
+                    <div class="report-card-header">
+
+                        <h3>
+                            Medicine &amp; Lab Statistics
+                        </h3>
+
+                        <span>
+                            Current
+                        </span>
+
+                    </div>
+
+
+                    <div class="mini-stat-grid">
+
+                        <div class="mini-stat">
+
+                            <div class="mini-stat-label">
+                                TOTAL MEDICINES
+                            </div>
+
+                            <div class="mini-stat-value" id="medTotal">
+                                0
+                            </div>
+
+                        </div>
+
+
+                        <div class="mini-stat">
+
+                            <div class="mini-stat-label">
+                                LOW STOCK
+                            </div>
+
+                            <div class="mini-stat-value" id="medLowStock">
+                                0
+                            </div>
+
+                        </div>
+
+
+                        <div class="mini-stat">
+
+                            <div class="mini-stat-label">
+                                EXPIRED
+                            </div>
+
+                            <div class="mini-stat-value" id="medExpired">
+                                0
+                            </div>
+
+                        </div>
+
+
+                        <div class="mini-stat">
+
+                            <div class="mini-stat-label">
+                                INV. VALUE
+                            </div>
+
+                            <div class="mini-stat-value" id="medInvValue">
+                                ₹0.00
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- PAYMENT OVERVIEW -->
+
+                <div class="report-card">
+
+                    <div class="report-card-header">
+
+                        <h3>
+                            Payment Overview
+                        </h3>
+
+                        <span id="payOverviewTotal">
+                            ₹0.00
+                        </span>
+
+                    </div>
+
+
+                    <div class="payment-overview">
+
+                        <div class="donut">
+
+                            <div class="donut-inner">
+
+                                <strong id="payCollectedPct">
+                                    0%
+                                </strong>
+
+                                <span>
+                                    Collected
+                                </span>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="payment-legend">
+
+                            <div class="payment-item">
+
+                                <span class="payment-dot green"></span>
+
+                                <span class="payment-item-text">
+                                    Collected
+                                    <span class="payment-item-value" id="payCollectedAmt">
+                                        ₹0.00
+                                    </span>
+                                </span>
+
+                            </div>
+
+
+                            <div class="payment-item">
+
+                                <span class="payment-dot orange"></span>
+
+                                <span class="payment-item-text">
+                                    Pending
+                                    <span class="payment-item-value" id="payPendingAmt">
+                                        ₹0.00
+                                    </span>
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- DEPARTMENT PERFORMANCE -->
+
+                <div class="report-card">
+
+                    <div class="report-card-header">
+
+                        <h3>
+                            Department Performance
+                        </h3>
+
+                        <span id="deptPerfLabel">
+                            By appointments
+                        </span>
+
+                    </div><table class="department-table">
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    DEPARTMENT
+                                </th>
+
+                                <th>
+                                    APPOINTMENTS
+                                </th>
+
+                                <th>
+                                    SHARE
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+                        <tbody id="deptPerfTableBody">
+                            <tr>
+                                <td colspan="3" style="text-align:center;color:#718096;padding:20px;">
+                                    Loading...
+                                </td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+
+
+
+                <!-- FULL WIDTH REPORT -->
+
+                <div class="report-card full-width">
+
+                    <div class="report-card-header">
+
+                        <h3>
+                            Period Summary
+                        </h3>
+
+                        <span id="summaryPeriodLabel">
+                            Loading...
+                        </span>
+
+                    </div><table class="department-table">
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    METRIC
+                                </th>
+
+                                <th>
+                                    VALUE
+                                </th>
+
+                                <th>
+                                    DETAIL
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody id="summaryTableBody">
+                            <tr><td colspan="3" style="text-align:center;color:#718096;">Loading report data...</td></tr>
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<!-- ================= JAVASCRIPT ================= -->
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/admin.js"></script>
+<script src="../js/reports.js"></script>
+
+</body>
+</html>

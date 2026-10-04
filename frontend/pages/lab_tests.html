@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Lab Tests | ClinixOne</title>
+
+    <!-- ClinixOne custom CSS -->
+    <link rel="stylesheet" href="../css/admin.css">
+
+    <style>
+        .page-card {
+            background: #ffffff;
+            border: 1px solid #e1e8f0;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(20, 55, 90, 0.06);
+            padding: 18px;
+        }
+
+        .lab-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .lab-search {
+            width: 280px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #e1e8f0;
+            border-radius: 6px;
+            padding: 0 10px;
+        }
+
+        .lab-search input {
+            width: 100%;
+            border: none;
+            outline: none;
+            font-size: 9px;
+        }
+
+        .lab-filter {
+            height: 34px;
+            padding: 0 10px;
+            border: 1px solid #e1e8f0;
+            border-radius: 6px;
+            background: #ffffff;
+            color: #526276;
+            font-size: 9px;
+        }
+
+        .add-lab-btn {
+            height: 34px;
+            padding: 0 14px;
+            background: #1769e8;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            font-size: 9px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .add-lab-btn:hover {
+            background: #0f5fd6;
+        }
+
+        .test-name {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            color: #17263a;
+            font-weight: 600;
+        }
+
+        .test-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 7px;
+            background: #eaf2ff;
+            color: #1769e8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+        }
+
+        .test-code {
+            color: #718096;
+            font-size: 7px;
+            margin-top: 2px;
+        }
+
+        .category-text {
+            color: #526276;
+            font-size: 8px;
+        }
+
+        .price {
+            color: #17263a;
+            font-size: 8px;
+            font-weight: 600;
+        }
+
+        .active-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background: #e6f7f0;
+            color: #15966b;
+            font-size: 7px;
+            font-weight: 700;
+        }
+
+        .inactive-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background: #fdebee;
+            color: #df5366;
+            font-size: 7px;
+            font-weight: 700;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .action-btn {
+            border: none;
+            background: transparent;
+            font-size: 8px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .edit-btn {
+            color: #1769e8;
+        }
+
+        .delete-btn {
+            color: #df5366;
+        }
+
+        .action-btn:hover {
+            background: #f4f7fb;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            color: #718096;
+            font-size: 8px;
+        }
+
+        .pagination-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .page-btn {
+            min-width: 27px;
+            height: 27px;
+            border: 1px solid #e1e8f0;
+            background: #ffffff;
+            border-radius: 5px;
+            color: #526276;
+            font-size: 8px;
+            cursor: pointer;
+        }
+
+        .page-btn.active {
+            background: #1769e8;
+            border-color: #1769e8;
+            color: #ffffff;
+        }
+
+        @media (max-width: 900px) {
+            .lab-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+
+            .toolbar-left {
+                flex-wrap: wrap;
+            }
+
+            .lab-search {
+                width: 100%;
+            }
+
+            .table-wrapper {
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="admin-layout">
+
+    <!-- SIDEBAR -->
+
+    <aside class="sidebar">
+
+        <div class="sidebar-logo">
+
+            <div class="logo-icon">
+                +
+            </div>
+
+            <div class="logo-text">
+                <h2>CLINIC SYSTEM</h2>
+                <span>HEALTHCARE MANAGEMENT</span>
+            </div>
+
+        </div>
+
+
+        <nav class="sidebar-nav">
+
+            <a href="admin_dashboard.html" class="nav-item">
+                <span class="nav-icon">⌂</span>
+                <span>Dashboard</span>
+            </a>
+
+            <a href="users.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Users</span>
+            </a>
+
+            <a href="doctors.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Doctors</span>
+            </a>
+
+            <a href="receptionists.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Receptionists</span>
+            </a>
+
+            <a href="patients.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Patients</span>
+            </a>
+
+            <a href="departments.html" class="nav-item">
+                <span class="nav-icon">▦</span>
+                <span>Departments</span>
+            </a>
+
+            <a href="specializations.html" class="nav-item">
+                <span class="nav-icon">✦</span>
+                <span>Specializations</span>
+            </a>
+
+            <a href="medicines.html" class="nav-item">
+                <span class="nav-icon">▣</span>
+                <span>Medicines</span>
+            </a>
+
+            <a href="lab_tests.html" class="nav-item active">
+                <span class="nav-icon">⚗</span>
+                <span>Lab Tests</span>
+            </a>
+
+            <a href="appointments.html" class="nav-item">
+                <span class="nav-icon">□</span>
+                <span>Appointments</span>
+            </a>
+
+            <a href="billing.html" class="nav-item">
+                <span class="nav-icon">▤</span>
+                <span>Billing</span>
+            </a>
+
+            <a href="payments.html" class="nav-item">
+                <span class="nav-icon">◉</span>
+                <span>Payments</span>
+            </a>
+
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">▥</span>
+                <span>Reports</span>
+            </a>
+
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙</span>
+                <span>Settings</span>
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-footer">
+            ClinixOne Admin Panel<br>
+            Version 1.0
+        </div>
+
+    </aside>
+
+
+    <!-- MAIN CONTENT -->
+
+    <main class="main-content">
+
+        <!-- HEADER -->
+
+        <header class="top-header">
+
+            <div class="breadcrumb">
+                <span>Admin</span>
+                <span>/</span>
+                <strong>Lab Tests</strong>
+            </div>
+
+
+            <div class="header-right">
+
+                <div class="search-box">
+
+                    <span>⌕</span>
+
+                    <input
+                        type="text"
+                        placeholder="Search..."
+                    >
+
+                    <small>Ctrl K</small>
+
+                </div>
+
+
+                <button class="notification-btn">
+                    ♧
+                </button>
+
+
+                <div class="profile">
+
+                    <div class="profile-avatar">
+                        AM
+                    </div>
+
+                    <span class="profile-name">
+                        Ava Morgan
+                    </span>
+
+                </div>
+
+            </div>
+
+        </header>
+
+
+        <!-- PAGE CONTENT -->
+
+        <section class="dashboard-content">
+
+
+            <!-- PAGE HEADING -->
+
+            <div class="page-heading">
+
+                <div>
+
+                    <h1>
+                        Lab Tests
+                    </h1>
+
+                    <p>
+                        Manage laboratory tests, categories and pricing.
+                    </p>
+
+                </div>
+
+
+                <div class="heading-actions">
+
+                    <button
+                        class="primary-btn add-lab-btn"
+                    >
+                        + Add Lab Test
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- CARD -->
+
+            <div class="page-card">
+
+
+                <!-- TOOLBAR -->
+
+                <div class="lab-toolbar">
+
+                    <div class="toolbar-left">
+
+                        <div class="lab-search">
+
+                            <span>⌕</span>
+
+                            <input
+                                type="text"
+                                id="labSearch"
+                                placeholder="Search lab tests..."
+                            >
+
+                        </div>
+
+
+                        <select
+                            class="lab-filter"
+                            id="categoryFilter"
+                        >
+
+                            <option value="all">
+                                All Categories
+                            </option>
+
+                            <option value="blood">
+                                Blood
+                            </option>
+
+                            <option value="urine">
+                                Urine
+                            </option>
+
+                            <option value="imaging">
+                                Imaging
+                            </option>
+
+                            <option value="biochemistry">
+                                Biochemistry
+                            </option>
+
+                        </select>
+
+
+                        <select
+                            class="lab-filter"
+                            id="statusFilter"
+                        >
+
+                            <option value="all">
+                                All Status
+                            </option>
+
+                            <option value="active">
+                                Active
+                            </option>
+
+                            <option value="inactive">
+                                Inactive
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+
+                <!-- TABLE -->
+
+                <div class="table-wrapper"><table id="labTestsTable">
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    LAB TEST
+                                </th>
+
+                                <th>
+                                    CATEGORY
+                                </th>
+
+                                <th>
+                                    PRICE
+                                </th>
+
+                                <th>
+                                    STATUS
+                                </th>
+
+                                <th>
+                                    ACTIONS
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody id="labTestsTableBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+
+                <!-- PAGINATION -->
+
+                <div class="pagination">
+                    <span id="resultCount">Showing 0 lab tests</span>
+                </div>
+            </div>
+
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/admin.js"></script>
+<script src="../js/lab_tests.js"></script>
+
+
+<!-- ================= LAB TEST MODAL ================= -->
+<div class="modal-overlay" id="labTestModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 id="labTestModalTitle">New Lab Test</h2>
+            <button class="close-modal" onclick="closeModal('labTestModal')">✕</button>
+        </div>
+        <form id="labTestForm">
+            <div class="modal-body">
+                <div class="form-error" id="labTestFormError"></div>
+                
+                <div class="form-grid">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Test Name *</label>
+                        <input type="text" id="labTestName" required placeholder="e.g. Complete Blood Count">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Test Type/Category *</label>
+                        <select id="labTestType" required>
+                            <option value="Hematology">Hematology</option>
+                            <option value="Biochemistry">Biochemistry</option>
+                            <option value="Microbiology">Microbiology</option>
+                            <option value="Pathology">Pathology</option>
+                            <option value="Immunology">Immunology</option>
+                            <option value="Radiology">Radiology</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Test Fee (₹) *</label>
+                        <input type="number" id="labTestFee" step="0.01" min="0" required placeholder="0.00">
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Description</label>
+                        <input type="text" id="labTestDesc" placeholder="Brief description of the test">
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Normal Range</label>
+                        <input type="text" id="labTestRange" placeholder="e.g. 12.0 - 15.5 g/dL">
+                    </div>
+
+                    <div class="form-group checkbox-group" style="grid-column: span 2;">
+                        <input type="checkbox" id="labTestActive" checked>
+                        <label for="labTestActive">Active Test</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="secondary-btn" onclick="closeModal('labTestModal')">Cancel</button>
+                <button type="submit" class="primary-btn" id="saveLabTestBtn">Save Lab Test</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>

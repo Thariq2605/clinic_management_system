@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Clinic System Care Operations</title>
+    <script>
+        const token = localStorage.getItem("access_token");
+        if (token) {
+            window.location.href = "pages/admin_dashboard.html";
+        } else {
+            window.location.href = "pages/login.html";
+        }
+    </script>
+</head>
+<body>
+    <p>Redirecting to Clinic System Care Operations...</p>
+</body>
+</html>

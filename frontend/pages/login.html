@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In | ClinixOne Care Operations</title>
+    <!-- ClinixOne custom CSS -->
+    <link rel="stylesheet" href="../css/admin.css">
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #092747 0%, #0c335e 50%, #1769e8 100%);
+            padding: 20px;
+        }
+
+        .login-card {
+            background: #ffffff;
+            width: 100%;
+            max-width: 400px;
+            border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(9, 39, 71, 0.25);
+            padding: 32px 28px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .login-logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .login-logo .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--primary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .login-logo h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary-dark);
+            text-align: left;
+            line-height: 1.1;
+        }
+
+        .login-logo span {
+            display: block;
+            font-size: 8px;
+            color: #718096;
+            letter-spacing: 0.8px;
+        }
+
+        .login-header p {
+            color: var(--text-light);
+            font-size: 9px;
+            margin-top: 4px;
+        }
+
+        .login-form .form-group {
+            margin-bottom: 16px;
+        }
+
+        .login-form label {
+            font-size: 8px;
+            font-weight: 600;
+            color: #4a5568;
+            margin-bottom: 6px;
+        }
+
+        .login-form .form-control {
+            height: 38px;
+            font-size: 10px;
+            border-radius: 6px;
+        }
+
+        .login-btn {
+            width: 100%;
+            height: 38px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: background 0.15s;
+        }
+
+        .login-btn:hover {
+            background: #0f5fd6;
+        }
+
+        .login-btn:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+
+        .login-alert {
+            background: #fdebee;
+            color: #df5366;
+            border: 1px solid #f8c2cb;
+            padding: 9px 12px;
+            border-radius: 6px;
+            font-size: 8px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .login-footer {
+            margin-top: 24px;
+            text-align: center;
+            font-size: 8px;
+            color: #a0aec0;
+            border-top: 1px solid #edf2f7;
+            padding-top: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-card">
+
+    <div class="login-header">
+        <div class="login-logo">
+            <div class="logo-icon">+</div>
+            <div>
+                <h2>CLINIC SYSTEM MANAGEMENT</h2>
+                <span>HEALTHCARE MANAGEMENT</span>
+            </div>
+        </div>
+        <p>Sign in to access the clinic administrative workspace</p>
+    </div>
+
+    <div id="loginErrorAlert" class="login-alert"></div>
+
+    <form id="loginForm" class="login-form">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" placeholder="e.g. admin" required autofocus>
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="••••••••" required>
+        </div>
+
+        <button type="submit" id="loginSubmitBtn" class="login-btn">
+            Sign In
+        </button>
+    </form>
+
+    <div class="login-footer">
+        ClinixOne Care Operations · Healthcare Management System
+    </div>
+
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+</body>
+</html>
