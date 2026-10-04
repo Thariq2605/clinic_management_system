@@ -817,11 +817,9 @@ button {
     border-radius: 50%;
 
     background:
-        conic-gradient(
-            var(--primary) 0deg 259deg,
+        conic-gradient(var(--primary) 0deg 259deg,
             #f0a42c 259deg 324deg,
-            var(--red) 324deg 360deg
-        );
+            var(--red) 324deg 360deg);
 
     position: relative;
 }
@@ -1268,8 +1266,15 @@ tbody tr:hover {
 }
 
 @keyframes modalIn {
-    from { opacity: 0; transform: scale(0.96); }
-    to { opacity: 1; transform: scale(1); }
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .modal-header {
@@ -1439,7 +1444,7 @@ textarea.form-control {
     border-radius: 6px;
     font-size: 9px;
     font-weight: 600;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -1448,18 +1453,37 @@ textarea.form-control {
     pointer-events: auto;
 }
 
-.toast.success { background: var(--green); }
-.toast.error { background: var(--red); }
-.toast.warning { background: var(--orange); }
-.toast.info { background: var(--primary); }
+.toast.success {
+    background: var(--green);
+}
+
+.toast.error {
+    background: var(--red);
+}
+
+.toast.warning {
+    background: var(--orange);
+}
+
+.toast.info {
+    background: var(--primary);
+}
 
 @keyframes toastIn {
-    from { transform: translateX(50px); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+    from {
+        transform: translateX(50px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
 }
 
 /* Table feedback */
-.table-empty, .table-loading {
+.table-empty,
+.table-loading {
     padding: 30px;
     text-align: center;
     color: var(--text-light);
@@ -1485,7 +1509,9 @@ textarea.form-control {
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Secondary / cancel button */
@@ -1573,4 +1599,19 @@ textarea.form-control {
 
 .profile-dropdown-item.logout:hover {
     background: var(--red-bg);
+}
+
+.logo-icon {
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.logo-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
 }
