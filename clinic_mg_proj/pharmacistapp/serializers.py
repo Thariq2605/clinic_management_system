@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from core.models import Medicine, PrescriptionMedicine
 from core.models import Prescription
+from core.models import Bill, Payment
 
 class MedicineSerializer(serializers.ModelSerializer):
     class Meta:
@@ -37,3 +38,21 @@ class PrescriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Prescription
         fields = ['prescription_id', 'patient_name', 'doctor_name', 'prescription_date']
+
+
+
+
+class BillSerializer(serializers.ModelSerializer):
+    patient_name = serializers.CharField(source='patient.full_name', read_only=True)
+
+    class Meta:
+        model = Bill
+        fields = ['bill_id', 'patient', 'patient_name', 'appointment', 'total_amount', 'bill_date', 'payment_status', 'created_by']
+        read_only_fields = ['bill_id', 'bill_date']
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = ['payment_id', 'bill', 'amount', 'payment_method', 'payment_date', 'transaction_reference']
+        read_only_fields = ['payment_id', 'payment_date']
