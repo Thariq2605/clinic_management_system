@@ -6,6 +6,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.authtoken.models import Token
 
 from core.models import Doctor, Receptionist, Staff, User
 
@@ -172,6 +173,46 @@ def common_login(request):
                 "username": user.username,
                 "name": display_name,
                 "redirect": "pharmacist/index.html"
+            },
+            status=status.HTTP_200_OK
+        )
+
+    # --- Role: Administrator ---
+    elif role_name in ["administrator", "admin"]:
+        staff = Staff.objects.filter(user=user, is_active=True).first()
+        display_name = staff.full_name if staff else user.username.capitalize()
+        department_name = (
+            staff.department.department_name
+            if staff and staff.department
+            else ""
+        )
+
+        # Get or create DRF auth token for the administrator
+        token, _ = Token.objects.get_or_create(user=user)
+
+        user_data = {
+            "user_id": user.user_id,
+            "username": user.username,
+            "role": user.role.role_name,
+            "full_name": display_name,
+            "department": department_name,
+            "is_active": user.is_active,
+        }
+
+        # Clear session to avoid leftover state from previous receptionist session
+        request.session.flush()
+
+        return Response(
+            {
+                "success": True,
+                "message": "Login successful",
+                "role": "administrator",
+                "user_id": user.user_id,
+                "username": user.username,
+                "name": display_name,
+                "token": token.key,
+                "user": user_data,
+                "redirect": "pages/admin_dashboard.html"
             },
             status=status.HTTP_200_OK
         )

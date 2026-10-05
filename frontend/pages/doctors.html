@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctors | ClinixOne Care Operations</title>
+    <!-- ClinixOne custom CSS -->
+    <link rel="stylesheet" href="../css/admin.css">
+    <style>
+        .page-card {
+            background: #ffffff;
+            border: 1px solid #e1e8f0;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(20, 55, 90, 0.06);
+            padding: 18px;
+        }
+
+        .doctors-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 18px;
+        }
+
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .doctors-search {
+            width: 260px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #e1e8f0;
+            border-radius: 6px;
+            padding: 0 10px;
+            background: #ffffff;
+        }
+
+        .doctors-search input {
+            width: 100%;
+            border: none;
+            outline: none;
+            font-size: 9px;
+            color: var(--text);
+        }
+
+        .doctors-filter {
+            height: 34px;
+            padding: 0 10px;
+            border: 1px solid #e1e8f0;
+            border-radius: 6px;
+            background: white;
+            color: #526276;
+            font-size: 9px;
+            outline: none;
+        }
+
+        .add-doctor-btn {
+            height: 34px;
+            padding: 0 14px;
+            background: #1769e8;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 9px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .add-doctor-btn:hover {
+            background: #0f5fd6;
+        }
+
+        .doctor-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #17263a;
+        }
+
+        .user-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #eaf2ff;
+            color: #1769e8;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 800px) {
+            .doctors-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .doctors-search {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="admin-layout">
+
+    <!-- ================= SIDEBAR ================= -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon">+</div>
+            <div class="logo-text">
+                <h2>CLINIC SYSTEM</h2>
+                <span>HEALTHCARE MANAGEMENT</span>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="admin_dashboard.html" class="nav-item">
+                <span class="nav-icon">▦</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="users.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Users</span>
+            </a>
+            <a href="doctors.html" class="nav-item active">
+                <span class="nav-icon">♙</span>
+                <span>Doctors</span>
+            </a>
+            <a href="receptionists.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Receptionists</span>
+            </a>
+            <a href="patients.html" class="nav-item">
+                <span class="nav-icon">♡</span>
+                <span>Patients</span>
+            </a>
+            <a href="departments.html" class="nav-item">
+                <span class="nav-icon">▤</span>
+                <span>Departments</span>
+            </a>
+            <a href="specializations.html" class="nav-item">
+                <span class="nav-icon">✦</span>
+                <span>Specializations</span>
+            </a>
+            <a href="medicines.html" class="nav-item">
+                <span class="nav-icon">▱</span>
+                <span>Medicines</span>
+            </a>
+            <a href="lab_tests.html" class="nav-item">
+                <span class="nav-icon">⚗</span>
+                <span>Lab Tests</span>
+            </a>
+            <a href="appointments.html" class="nav-item">
+                <span class="nav-icon">▣</span>
+                <span>Appointments</span>
+            </a>
+            <a href="billing.html" class="nav-item">
+                <span class="nav-icon">▤</span>
+                <span>Billing</span>
+            </a>
+            <a href="payments.html" class="nav-item">
+                <span class="nav-icon">▣</span>
+                <span>Payments</span>
+            </a>
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">▥</span>
+                <span>Reports</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙</span>
+                <span>Settings</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <span>24/7 clinic support · Contact team →</span>
+        </div>
+    </aside>
+
+    <!-- ================= MAIN CONTENT ================= -->
+    <main class="main-content">
+
+        <!-- Top Header -->
+        <header class="top-header">
+            <div class="breadcrumb">
+                <span>Clinic management</span>
+                <span>/</span>
+                <strong>Doctors</strong>
+            </div>
+
+            <div class="header-right">
+                <div class="search-box">
+                    <span>⌕</span>
+                    <input type="text" placeholder="Search patients, doctors, records...">
+                    <small>⌘ K</small>
+                </div>
+
+                <button class="notification-btn" title="Notifications">♧</button>
+
+                <div class="profile">
+                    <div class="profile-avatar">AD</div>
+                    <div class="profile-name">Administrator</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <section class="dashboard-content">
+
+            <div class="page-heading">
+                <div>
+                    <h1>Medical Staff & Doctors</h1>
+                    <p>Manage physician profiles, medical licenses, departments, and consultation fees.</p>
+                </div>
+            </div>
+
+            <div class="page-card">
+                <div class="doctors-toolbar">
+                    <div class="toolbar-left">
+                        <div class="doctors-search">
+                            <span>⌕</span>
+                            <input type="text" id="doctorSearch" placeholder="Search doctor by name, license...">
+                        </div>
+
+                        <select id="departmentFilter" class="doctors-filter">
+                            <option value="">All departments</option>
+                        </select>
+
+                        <select id="statusFilter" class="doctors-filter">
+                            <option value="">All statuses</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+
+                    <button type="button" class="add-doctor-btn" id="addDoctorBtn">
+                        + Add Doctor
+                    </button>
+                </div>
+
+                <div class="table-wrapper"><table>
+                        <thead>
+                            <tr>
+                                <th>DOCTOR ID</th>
+                                <th>DOCTOR NAME</th>
+                                <th>DEPARTMENT</th>
+                                <th>SPECIALIZATION</th>
+                                <th>QUALIFICATION</th>
+                                <th>EXPERIENCE</th>
+                                <th>LICENSE</th>
+                                <th>FEE</th>
+                                <th>STATUS</th>
+                                <th>ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="doctorsTableBody">
+                            <tr>
+                                <td colspan="10" class="table-loading">
+                                    <span class="spinner"></span> Loading doctors...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 8px; color: var(--text-light);">
+                    <div id="doctorCountDisplay">Showing doctors...</div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<!-- ================= ADD / EDIT DOCTOR MODAL ================= -->
+<div class="modal-backdrop" id="doctorModal">
+    <div class="modal-box large">
+        <div class="modal-header">
+            <h3 id="doctorModalTitle">Add New Doctor</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal('doctorModal')">&times;</button>
+        </div>
+        <form id="doctorForm">
+            <div class="modal-body">
+                <div id="doctorFormError" class="login-alert" style="display: none; margin-bottom: 12px;"></div>
+
+                <div class="form-group" id="doctorStaffGroup">
+                    <label for="doctorStaff">Staff Member Account <span class="required">*</span></label>
+                    <select id="doctorStaff">
+                        <option value="">Select staff member...</option>
+                    </select>
+                    <small style="color: var(--text-light); font-size: 7px; margin-top: 2px;">Select an existing staff member to assign doctor credentials.</small>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="doctorDepartment">Department <span class="required">*</span></label>
+                        <select id="doctorDepartment" required>
+                            <option value="">Select department...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="doctorSpecialization">Specialization <span class="required">*</span></label>
+                        <select id="doctorSpecialization" required>
+                            <option value="">Select specialization...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="doctorQualification">Qualification <span class="required">*</span></label>
+                        <input type="text" id="doctorQualification" placeholder="e.g. MBBS, MD (Cardiology)" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="doctorExperience">Experience (Years) <span class="required">*</span></label>
+                        <input type="number" id="doctorExperience" min="0" placeholder="e.g. 8" required>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="doctorLicense">Medical License Number <span class="required">*</span></label>
+                        <input type="text" id="doctorLicense" placeholder="e.g. MD-78492" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="doctorFee">Consultation Fee ($) <span class="required">*</span></label>
+                        <input type="number" id="doctorFee" min="0" step="0.01" placeholder="e.g. 120.00" required>
+                    </div>
+                </div>
+
+                <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 8px;">
+                    <input type="checkbox" id="doctorActive" checked style="cursor: pointer;">
+                    <label for="doctorActive" style="margin-bottom: 0; cursor: pointer;">Active physician (available for consultations)</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="secondary-btn" onclick="closeModal('doctorModal')">Cancel</button>
+                <button type="submit" class="primary-btn" id="saveDoctorBtn">Save Doctor</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================= VIEW DOCTOR MODAL ================= -->
+<div class="modal-backdrop" id="viewDoctorModal">
+    <div class="modal-box large">
+        <div class="modal-header">
+            <h3>Doctor Profile</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal('viewDoctorModal')">&times;</button>
+        </div>
+        <div class="modal-body" id="viewDoctorDetailsBody">
+            <!-- Populated via doctors.js -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="secondary-btn" onclick="closeModal('viewDoctorModal')">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/admin.js"></script>
+<script src="../js/doctors.js"></script>
+</body>
+</html>

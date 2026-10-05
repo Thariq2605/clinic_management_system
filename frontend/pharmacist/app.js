@@ -1,19 +1,22 @@
 const API = 'http://127.0.0.1:8000/pharmacist';
 const LOW = 20, PER = 8;
 const $ = (s, r = document) => r.querySelector(s);
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const json = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } };
 const S = {
   user: json('user', null),
   meds: [],
   items: [],
   rx: [],
+  bills: [],
+  payments: [],
   view: 'Dashboard',
   page: 1,
   q: '',
   st: '',
   iq: '',
   ist: '',
+  pq: '',
   tab: 'Profile',
   loading: true,
   err: '',
@@ -28,13 +31,14 @@ const NAV = [
   { id: 'Medicines', label: 'Medicines', icon: 'bi-capsule' },
   { id: 'Inventory', label: 'Inventory', icon: 'bi-boxes' },
   { id: 'Dispensing', label: 'Dispensing', icon: 'bi-prescription2' },
+  { id: 'Payment', label: 'Payments', icon: 'bi-cash-coin' },
   { id: 'Profile', label: 'Profile', icon: 'bi-person-circle' },
   { id: 'Settings', label: 'Settings', icon: 'bi-gear' }
 ];
 
 async function api(path, opts = {}) {
   const r = await fetch(API + path, { headers: { 'Content-Type': 'application/json' }, ...opts });
-  let j = null; try { j = await r.json() } catch {}
+  let j = null; try { j = await r.json() } catch { }
   if (!r.ok) throw new Error(j?.detail || 'Request failed (' + r.status + ')');
   return j;
 }
@@ -83,10 +87,12 @@ async function load() {
   S.err = '';
   render();
   try {
-    [S.meds, S.items, S.rx] = (await Promise.all([
+    [S.meds, S.items, S.rx, S.bills, S.payments] = (await Promise.all([
       api('/medicines/'),
       api('/prescription-medicines/'),
-      api('/prescriptions/')
+      api('/prescriptions/'),
+      api('/bills/'),
+      api('/payments/')
     ])).map(list);
   } catch (e) {
     S.err = e.message === 'Failed to fetch'
@@ -177,6 +183,16 @@ function inventory() {
 }
 
 const STEPS = ['Open prescription', 'Check availability', 'Review medicines', 'Confirm', 'Success'];
+
+function payments() {
+  const rows = S.bills.filter(b => !S.pq || String(b.bill_id).includes(S.pq) || (b.patient_name || '').toLowerCase().includes(S.pq.toLowerCase()))
+    .map(b => `<tr><td>#${b.bill_id}</td><td>${esc(b.patient_name || '—')}</td><td>${money(b.total_amount)}</td><td>${b.bill_date}</td>
+      <td>${badge(b.payment_status === 'paid' ? 'Dispensed' : 'Pending')}</td>
+      <td>${b.payment_status !== 'paid' ? `<button class="btn sm pri" data-a="paynow" data-id="${b.bill_id}"><i class="bi bi-cash me-1"></i>Mark as Paid</button>` : '<span class="muted">Paid</span>'}</td></tr>`);
+  return `<div class="bar-tools"><input id="pq" type="search" placeholder="Search by bill ID or patient" value="${esc(S.pq)}" aria-label="Search bills"></div>
+   <div class="card">${rows.length ? table(['Bill ID', 'Patient', 'Amount', 'Date', 'Status', 'Action'], rows) : state('No medicine bills yet', '<p>Bills appear here once a prescription has been dispensed.</p>')}</div>`;
+}
+
 function dispensing() {
   const d = S.d, steps = `<ol class="steps">${STEPS.map((s, i) => `<li class="${i + 1 === (d?.step || 1) ? 'on' : i + 1 < (d?.step || 1) ? 'done' : ''}">${s}</li>`).join('')}</ol>`;
   if (!d) {
@@ -191,7 +207,17 @@ function dispensing() {
   let body = '';
   if (d.step === 2) body = table(['Medicine', 'In stock', 'Availability'], rows.map(r => `<tr><td>${esc(r.i.medicine_details)}</td><td>${r.m?.quantity ?? 0}</td><td>${r.i.is_active ? badge(r.s) : badge('Dispensed')}</td></tr>`));
   else if (d.step === 3 || d.step === 4) body = table(['Medicine', 'Quantity', 'Dosage', 'Frequency', 'Duration', 'Instructions'], rows.filter(r => r.i.is_active).map(r => `<tr><td>${esc(r.i.medicine_details)}</td><td>1</td><td>${esc(r.i.dosage)}</td><td>${esc(r.i.frequency)}</td><td>${r.i.duration} days</td><td>${esc(r.i.instructions)}</td></tr>`));
-  else if (d.step === 5) body = `<div class="alert ok">${d.done} medicine(s) dispensed successfully.</div>` + (d.fail.length ? `<div class="alert bad">Not dispensed: ${esc(d.fail.join('; '))}</div>` : '');
+  else if (d.step === 5) {
+    body = `<div class="alert ok">${d.done} medicine(s) dispensed.</div>` + (d.fail.length ? `<div class="alert bad">Not dispensed: ${esc(d.fail.join('; '))}</div>` : '');
+    if (d.bill) {
+      body += `<div class="card" style="margin-top:12px"><h3>Medicine Bill</h3>
+        <div class="kv"><div><span>Amount</span>${money(d.bill.total_amount)}</div><div><span>Status</span>${badge(d.bill.payment_status === 'paid' ? 'Dispensed' : 'Pending')}</div></div>
+        ${d.bill.payment_status !== 'paid' ? `<button class="btn pri" data-a="paybill"><i class="bi bi-cash me-1"></i>Mark as Paid</button>` : '<p class="muted">Payment received.</p>'}
+      </div>`;
+    } else if (d.billError) {
+      body += `<div class="alert warn">Bill not created: ${esc(d.billError)}</div>`;
+    }
+  }
   const blocked = rows.some(r => r.i.is_active && !r.ok);
   const warn = d.step === 2 && blocked ? '<div class="alert warn">Some medicines are unavailable. You can still dispense the rest.</div>' : '';
   const nav = d.step < 5 ? `<div class="actions"><button class="btn" data-a="dcancel">Cancel</button>
@@ -216,7 +242,7 @@ function settings() {
   return `<div class="tabs" role="tablist">${tabs.map(t => `<button class="btn" role="tab" aria-selected="${S.tab === t}" data-a="tab" data-id="${t}">${t}</button>`).join('')}</div><div class="card">${b}</div>`;
 }
 
-const VIEWS = { Dashboard: dashboard, Prescriptions: prescriptions, Medicines: medicines, Inventory: inventory, Dispensing: dispensing, Profile: profile, Settings: settings };
+const VIEWS = { Dashboard: dashboard, Prescriptions: prescriptions, Medicines: medicines, Inventory: inventory, Dispensing: dispensing, Payment: payments, Profile: profile, Settings: settings };
 
 function render() {
   if (!S.user) {
@@ -248,8 +274,8 @@ function render() {
   if (mainEl) {
     mainEl.innerHTML = !needsData ? VIEWS[S.view]()
       : S.loading ? '<div class="card"><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>'
-      : S.err ? `<div class="alert bad" role="alert">${esc(S.err)} <button class="btn sm" data-a="retry">Try again</button></div>`
-      : VIEWS[S.view]();
+        : S.err ? `<div class="alert bad" role="alert">${esc(S.err)} <button class="btn sm" data-a="retry">Try again</button></div>`
+          : VIEWS[S.view]();
   }
 }
 
@@ -299,7 +325,17 @@ document.addEventListener('click', async e => {
       try { await api(`/prescription-medicines/${i.item_id}/dispense/`, { method: 'POST' }); S.d.done++; logAct('Dispensed ' + i.medicine_details + ' (Rx #' + S.d.rx.id + ')') }
       catch (x) { S.d.fail.push(i.medicine_details + ': ' + x.message) }
     }
+    try { S.d.bill = await api(`/prescriptions/${S.d.rx.id}/bill/`, { method: 'POST' }); }
+    catch (x) { S.d.billError = x.message; }
     S.d.busyNow = false; S.d.step = 5; S.d.busy = null; render(); load();
+  }
+  if (a === 'paybill') {
+    try { S.d.bill = await api(`/bills/${S.d.bill.bill_id}/pay/`, { method: 'POST', body: JSON.stringify({ payment_method: 'cash' }) }); toast('Payment recorded'); render(); }
+    catch (x) { toast(x.message); }
+  }
+  if (a === 'paynow') {
+    try { await api(`/bills/${id}/pay/`, { method: 'POST', body: JSON.stringify({ payment_method: 'cash' }) }); toast('Payment recorded'); load(); }
+    catch (x) { toast(x.message); }
   }
 });
 
@@ -307,6 +343,7 @@ document.addEventListener('input', e => {
   const t = e.target;
   if (t.id === 'q') { S.q = t.value; S.page = 1; render(); $('#q').focus(); $('#q').setSelectionRange(99, 99) }
   if (t.id === 'iq') { S.iq = t.value; render(); $('#iq').focus(); $('#iq').setSelectionRange(99, 99) }
+  if (t.id === 'pq') { S.pq = t.value; render(); $('#pq').focus(); $('#pq').setSelectionRange(99, 99) }
 });
 
 document.addEventListener('change', e => {

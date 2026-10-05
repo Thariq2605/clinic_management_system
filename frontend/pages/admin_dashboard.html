@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>ClinixOne - Admin Dashboard</title>
+
+    <!-- ClinixOne custom CSS -->
+    <link rel="stylesheet" href="../css/admin.css">
+</head>
+
+<body>
+
+    <div class="admin-layout">
+
+        <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
+        <aside class="sidebar">
+
+            <div class="sidebar-logo">
+                <div class="logo-icon">+</div>
+
+                <div class="logo-text">
+                    <h2>CLINIC SYSTEM</h2>
+                    <span>HEALTHCARE MANAGEMENT</span>
+                </div>
+            </div>
+
+
+            <!-- Navigation -->
+            <nav class="sidebar-nav">
+
+                <a href="admin_dashboard.html" class="nav-item active">
+                    <span class="nav-icon">▦</span>
+                    <span>Dashboard</span>
+                </a>
+
+                <a href="users.html" class="nav-item">
+                    <span class="nav-icon">♙</span>
+                    <span>Users</span>
+                </a>
+
+                <a href="doctors.html" class="nav-item">
+                    <span class="nav-icon">♙</span>
+                    <span>Doctors</span>
+                </a>
+
+                <a href="receptionists.html" class="nav-item">
+                    <span class="nav-icon">♙</span>
+                    <span>Receptionists</span>
+                </a>
+
+                <a href="patients.html" class="nav-item">
+                    <span class="nav-icon">♡</span>
+                    <span>Patients</span>
+                </a>
+
+                <a href="departments.html" class="nav-item">
+                    <span class="nav-icon">▤</span>
+                    <span>Departments</span>
+                </a>
+
+                <a href="specializations.html" class="nav-item">
+                    <span class="nav-icon">✦</span>
+                    <span>Specializations</span>
+                </a>
+
+                <a href="medicines.html" class="nav-item">
+                    <span class="nav-icon">▱</span>
+                    <span>Medicines</span>
+                </a>
+
+                <a href="lab_tests.html" class="nav-item">
+                    <span class="nav-icon">⚗</span>
+                    <span>Lab Tests</span>
+                </a>
+
+                <a href="appointments.html" class="nav-item">
+                    <span class="nav-icon">▣</span>
+                    <span>Appointments</span>
+                </a>
+
+                <a href="billing.html" class="nav-item">
+                    <span class="nav-icon">▤</span>
+                    <span>Billing</span>
+                </a>
+
+                <a href="payments.html" class="nav-item">
+                    <span class="nav-icon">▣</span>
+                    <span>Payments</span>
+                </a>
+
+                <a href="reports.html" class="nav-item">
+                    <span class="nav-icon">▥</span>
+                    <span>Reports</span>
+                </a>
+
+                <a href="settings.html" class="nav-item">
+                    <span class="nav-icon">⚙</span>
+                    <span>Settings</span>
+                </a>
+
+            </nav>
+
+
+            <div class="sidebar-footer">
+                <span>24/7 clinic support · Contact team →</span>
+            </div>
+
+        </aside>
+
+
+        <!-- =====================================================
+         MAIN CONTENT
+    ====================================================== -->
+        <main class="main-content">
+
+
+            <!-- =================================================
+             TOP HEADER
+        ================================================== -->
+            <header class="top-header">
+
+                <div class="breadcrumb">
+                    <span>Clinic management</span>
+                    <span>/</span>
+                    <strong>Dashboard</strong>
+                </div>
+
+
+                <div class="header-right">
+
+                    <!-- Search -->
+                    <div class="search-box">
+                        <span>⌕</span>
+                        <input type="text" placeholder="Search patients, doctors, records..." id="dashboardGlobalSearch"
+                            title="Global search not supported by backend" disabled>
+                        <small>⌘ K</small>
+                    </div>
+
+
+                    <!-- Notification -->
+                    <button class="notification-btn" id="notifBtn">
+                        ♧
+                    </button>
+
+
+
+                    <!-- Profile -->
+                    <div class="profile" id="profileDropdownBtn" style="cursor: pointer; position: relative;">
+
+                        <div class="profile-avatar">
+                            AM
+                        </div>
+
+                        <div class="profile-name" id="profileNameDisplay">
+                            Ava Morgan
+                        </div>
+
+                        <div id="profileDropdownMenu"
+                            style="display: none; position: absolute; top: 100%; right: 0; background: white; border: 1px solid #ddd; padding: 10px; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 100;">
+                            <div style="padding: 5px 10px; border-bottom: 1px solid #eee; margin-bottom: 5px;">
+                                <strong id="profileDropdownEmail">admin@clinixone.com</strong><br>
+                                <small>Administrator</small>
+                            </div>
+                            <a href="settings.html"
+                                style="display: block; padding: 5px 10px; text-decoration: none; color: #333;">Settings</a>
+                            <button id="logoutBtn"
+                                style="display: block; width: 100%; text-align: left; padding: 5px 10px; background: none; border: none; color: red; cursor: pointer; font-size: 14px;">Logout</button>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </header>
+
+
+            <!-- =================================================
+             PAGE CONTENT
+        ================================================== -->
+            <section class="dashboard-content">
+
+
+                <!-- Page heading -->
+                <div class="page-heading">
+
+                    <div>
+                        <h1 id="dashboardGreeting">Good morning</h1>
+
+                        <p id="dashboardSubtitle">
+                            Here's what's happening across your clinic today.
+                        </p>
+                    </div>
+
+
+                    <div class="heading-actions">
+
+                        <button class="date-btn" id="dashboardDateBtn" title="Showing data for all time">
+                            ◫ All Time Data
+                        </button>
+
+                        <button class="primary-btn" id="newAppointmentBtn">
+                            + New appointment
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- =================================================
+                 STATISTICS CARDS
+            ================================================== -->
+                <div class="stats-grid">
+
+
+                    <!-- Doctors -->
+                    <div class="stat-card">
+
+                        <div class="stat-top">
+
+                            <div class="stat-icon blue">
+                                ♧
+                            </div>
+
+                            <span class="percentage positive">
+                                + 6.8%
+                            </span>
+
+                        </div>
+
+                        <h2 id="statDoctors">—</h2>
+
+                        <p>Total Doctors</p>
+
+                    </div>
+
+
+                    <!-- Receptionists -->
+                    <div class="stat-card">
+
+                        <div class="stat-top">
+
+                            <div class="stat-icon purple">
+                                ♧
+                            </div>
+
+                            <span class="percentage positive">
+                                + 2 new
+                            </span>
+
+                        </div>
+
+                        <h2 id="statReceptionists">—</h2>
+
+                        <p>Receptionists</p>
+
+                    </div>
+
+
+                    <!-- Patients -->
+                    <div class="stat-card">
+
+                        <div class="stat-top">
+
+                            <div class="stat-icon green">
+                                ♡
+                            </div>
+
+                            <span class="percentage positive">
+                                + 11.4%
+                            </span>
+
+                        </div>
+
+                        <h2 id="statPatients">—</h2>
+
+                        <p>Patients</p>
+
+                    </div>
+
+
+                    <!-- Appointments -->
+                    <div class="stat-card">
+
+                        <div class="stat-top">
+
+                            <div class="stat-icon light-blue">
+                                ▣
+                            </div>
+
+                            <span class="percentage positive">
+                                + 8.2%
+                            </span>
+
+                        </div>
+
+                        <h2 id="statAppointments">—</h2>
+
+                        <p>Today's Appointments</p>
+
+                    </div>
+
+
+                    <!-- Payments -->
+                    <div class="stat-card">
+
+                        <div class="stat-top">
+
+                            <div class="stat-icon orange">
+                                ✉
+                            </div>
+
+                            <span class="percentage negative">
+                                - 3.1%
+                            </span>
+
+                        </div>
+
+                        <h2 id="statPendingPayments">—</h2>
+
+                        <p>Pending Payments</p>
+
+                    </div>
+
+
+                    <!-- Lab Orders -->
+                    <div class="stat-card">
+
+                        <div class="stat-top">
+
+                            <div class="stat-icon red">
+                                ⚗
+                            </div>
+
+                            <span class="percentage positive">
+                                + 5 today
+                            </span>
+
+                        </div>
+
+                        <h2 id="statLabOrders">—</h2>
+
+                        <p>Pending Lab Orders</p>
+
+                    </div>
+
+
+                    <!-- Prescriptions -->
+                    <div class="stat-card">
+
+                        <div class="stat-top">
+
+                            <div class="stat-icon mint">
+                                ▱
+                            </div>
+
+                            <span class="percentage positive">
+                                + 4.5%
+                            </span>
+
+                        </div>
+
+                        <h2 id="statPrescriptions">—</h2>
+
+                        <p>Active Prescriptions</p>
+
+                    </div>
+
+
+                    <!-- Quick actions -->
+                    <div class="stat-card quick-actions">
+
+                        <button class="outline-btn" id="registerPatientBtn">
+                            ♙ Register patient
+                        </button>
+
+                        <button class="outline-btn" id="createBillBtn">
+                            ▣ Create bill
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <!-- =================================================
+                 CHARTS ROW
+            ================================================== -->
+                <div class="dashboard-row">
+
+
+                    <!-- Appointment Statistics -->
+                    <div class="dashboard-card appointment-chart">
+
+                        <div class="card-header">
+
+                            <div>
+                                <h3>Appointment statistics</h3>
+                                <p id="appointmentChartSubtitle">This week · loading…</p>
+                            </div>
+
+                        </div>
+
+
+                        <!-- Chart (populated by dashboard.js) -->
+                        <div class="bar-chart" id="appointmentBarChart">
+                            <!-- bars injected dynamically -->
+                        </div>
+
+                    </div>
+
+
+                    <!-- Payment Overview -->
+                    <div class="dashboard-card payment-card">
+
+                        <div class="card-header">
+
+                            <div>
+                                <h3>Payment overview</h3>
+                                <p id="paymentSubtitle">Loading…</p>
+                            </div>
+
+                        </div>
+
+
+                        <div class="payment-content">
+
+                            <div class="donut-chart" id="paymentDonut">
+                                <div class="donut-inner"></div>
+                            </div>
+
+
+                            <div class="payment-legend">
+
+                                <div>
+                                    <span class="legend-dot paid"></span>
+                                    <span>Paid</span>
+                                    <strong id="paidPct">—</strong>
+                                </div>
+
+                                <div>
+                                    <span class="legend-dot pending"></span>
+                                    <span>Pending</span>
+                                    <strong id="pendingPct">—</strong>
+                                </div>
+
+                                <div>
+                                    <span class="legend-dot overdue"></span>
+                                    <span>Overdue</span>
+                                    <strong id="overduePct">—</strong>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- =================================================
+                 BOTTOM ROW
+            ================================================== -->
+                <div class="dashboard-row bottom-row">
+
+
+                    <!-- Today's Appointments -->
+                    <div class="dashboard-card appointments-card">
+
+                        <div class="card-header">
+
+                            <div>
+                                <h3>Today's appointments</h3>
+                                <p id="appointmentsTableSubtitle">Loading…</p>
+                            </div>
+
+                            <a href="appointments.html">
+                                View schedule →
+                            </a>
+
+                        </div>
+
+
+                        <div class="table-wrapper">
+                            <table>
+
+                                <thead>
+
+                                    <tr>
+                                        <th>TOKEN</th>
+                                        <th>PATIENT</th>
+                                        <th>DOCTOR</th>
+                                        <th>TIME</th>
+                                        <th>STATUS</th>
+                                    </tr>
+
+                                </thead>
+
+
+                                <tbody id="recentAppointmentsBody">
+                                    <!-- populated by dashboard.js -->
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- Recent Activities -->
+                    <div class="dashboard-card activities-card">
+
+                        <div class="card-header">
+
+                            <div>
+                                <h3>Recent activities</h3>
+                                <p>Live team updates</p>
+                            </div>
+
+                        </div>
+
+
+                        <div class="activities-list" id="recentActivitiesList">
+                            <!-- populated by dashboard.js -->
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+            </section>
+
+        </main>
+
+    </div>
+
+
+    <!-- Scripts -->
+    <script src="../js/api.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/admin.js"></script>
+    <script src="../js/dashboard.js"></script>
+
+</body>
+
+</html>

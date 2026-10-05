@@ -16,6 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from rest_framework.authtoken.views import obtain_auth_token
 
 from core.views import common_csrf, common_login
 
@@ -26,4 +27,6 @@ urlpatterns = [
     path('doctor/', include('doctorapp.urls')),
     path('api/receptionist/', include('receptionistapp.urls')),
     path('pharmacist/', include('pharmacistapp.urls')),
+    path('api/admin/', include('adminapp.urls')),
+    path('api/token/', obtain_auth_token, name='api-token'),
 ]

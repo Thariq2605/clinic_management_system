@@ -98,12 +98,38 @@ class CommonLoginAPITests(TestCase):
             is_active=False
         )
 
-        # 5. Unsupported role setup (Administrator)
+        # 5. Administrator setup
         self.role_admin = Role.objects.create(role_name="Administrator")
         self.user_admin = User.objects.create_user(
             username="admin_user",
             password="password123",
             role=self.role_admin,
+            is_active=True
+        )
+        self.staff_admin = Staff.objects.create(
+            user=self.user_admin,
+            full_name="Admin Chief",
+            gender="Other",
+            dob=date(1985, 1, 1),
+            mobile_number="9876543213",
+            email="admin@clinic.test",
+            department=self.dept
+        )
+
+        # 6. Inactive Admin user
+        self.user_admin_inactive = User.objects.create_user(
+            username="inactive_admin",
+            password="password123",
+            role=self.role_admin,
+            is_active=False
+        )
+
+        # 7. Unsupported role setup (Nurse)
+        self.role_unsupported = Role.objects.create(role_name="Nurse")
+        self.user_unsupported = User.objects.create_user(
+            username="nurse_user",
+            password="password123",
+            role=self.role_unsupported,
             is_active=True
         )
 
@@ -211,11 +237,35 @@ class CommonLoginAPITests(TestCase):
     # -----------------------------------------------------------
     def test_unsupported_role_rejected(self):
         response = self.client.post("/api/login/", {
-            "username": "admin_user",
+            "username": "nurse_user",
             "password": "password123"
         })
         self.assertEqual(response.status_code, 403)
         self.assertIn("not supported", response.data["error"])
+
+    def test_inactive_admin_user_rejected(self):
+        response = self.client.post("/api/login/", {
+            "username": "inactive_admin",
+            "password": "password123"
+        })
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("error", response.data)
+
+    def test_valid_administrator_login(self):
+        response = self.client.post("/api/login/", {
+            "username": "admin_user",
+            "password": "password123"
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["role"], "administrator")
+        self.assertEqual(response.data["user_id"], self.user_admin.user_id)
+        self.assertEqual(response.data["username"], "admin_user")
+        self.assertEqual(response.data["name"], "Admin Chief")
+        self.assertIn("token", response.data)
+        self.assertTrue(len(response.data["token"]) > 0)
+        self.assertEqual(response.data["redirect"], "pages/admin_dashboard.html")
+        self.assertIn("user", response.data)
+        self.assertEqual(response.data["user"]["full_name"], "Admin Chief")
 
     # -----------------------------------------------------------
     # H. Missing Username
@@ -241,16 +291,36 @@ class CommonLoginAPITests(TestCase):
     # J. Client-sent role parameter is strictly ignored
     # -----------------------------------------------------------
     def test_client_cannot_spoof_role(self):
-        # A receptionist tries to send "role": "doctor"
+        # A receptionist tries to send "role": "administrator"
         response = self.client.post("/api/login/", {
             "username": "reception_user",
             "password": "password123",
-            "role": "doctor"
+            "role": "administrator"
         })
         self.assertEqual(response.status_code, 200)
-        # Backend MUST ignore the client-sent "role" and return receptionist
         self.assertEqual(response.data["role"], "receptionist")
         self.assertEqual(response.data["redirect"], "dashboard.html")
+        self.assertNotIn("token", response.data)
+
+        # A doctor tries to send "role": "administrator"
+        response = self.client.post("/api/login/", {
+            "username": "doctor_user",
+            "password": "password123",
+            "role": "administrator"
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["role"], "doctor")
+        self.assertEqual(response.data["redirect"], "doctor/dashboard.html")
+
+        # A pharmacist tries to send "role": "administrator"
+        response = self.client.post("/api/login/", {
+            "username": "pharma_user",
+            "password": "password123",
+            "role": "administrator"
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["role"], "pharmacist")
+        self.assertEqual(response.data["redirect"], "pharmacist/index.html")
 
     # -----------------------------------------------------------
     # K. Verify existing module APIs work after common login
@@ -321,4 +391,51 @@ class CommonLoginAPITests(TestCase):
         })
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.data["role"], "Pharmacist")
+
+    def test_admin_api_works_with_common_login_token(self):
+        login_resp = self.client.post("/api/login/", {
+            "username": "admin_user",
+            "password": "password123"
+        })
+        self.assertEqual(login_resp.status_code, 200)
+        token = login_resp.data["token"]
+
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token}")
+        resp = self.client.get("/api/admin/me/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["username"], "admin_user")
+        self.assertEqual(resp.data["full_name"], "Admin Chief")
+
+    def test_receptionist_cannot_access_admin_api(self):
+        login_resp = self.client.post("/api/login/", {
+            "username": "reception_user",
+            "password": "password123"
+        })
+        self.assertEqual(login_resp.status_code, 200)
+
+        # Receptionist session should not be allowed into admin endpoints
+        resp = self.client.get("/api/admin/me/")
+        self.assertIn(resp.status_code, [401, 403])
+
+    def test_doctor_jwt_cannot_access_admin_api(self):
+        login_resp = self.client.post("/api/login/", {
+            "username": "doctor_user",
+            "password": "password123"
+        })
+        self.assertEqual(login_resp.status_code, 200)
+        access_token = login_resp.data["access"]
+
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+        resp = self.client.get("/api/admin/me/")
+        self.assertIn(resp.status_code, [401, 403])
+
+    def test_pharmacist_cannot_access_admin_api(self):
+        login_resp = self.client.post("/api/login/", {
+            "username": "pharma_user",
+            "password": "password123"
+        })
+        self.assertEqual(login_resp.status_code, 200)
+
+        resp = self.client.get("/api/admin/me/")
+        self.assertIn(resp.status_code, [401, 403])
 

@@ -5,6 +5,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from core.models import Medicine, PrescriptionMedicine, User, Prescription
 from .serializers import MedicineSerializer, PrescriptionMedicineSerializer ,PrescriptionSerializer
+from rest_framework.permissions import AllowAny
+from django.utils import timezone
+from core.models import Bill, Payment, Staff
+from .serializers import BillSerializer, PaymentSerializer
 
 class PharmacistLoginView(APIView):
     def post(self, request):
@@ -64,6 +68,8 @@ class MedicineViewSet(viewsets.ModelViewSet):
 class PrescriptionMedicineViewSet(viewsets.ModelViewSet):
     queryset = PrescriptionMedicine.objects.all()
     serializer_class = PrescriptionMedicineSerializer
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -103,3 +109,74 @@ class PrescriptionMedicineViewSet(viewsets.ModelViewSet):
 class PrescriptionViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Prescription.objects.all()
     serializer_class = PrescriptionSerializer
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    @action(detail=True, methods=['post'])
+    def bill(self, request, pk=None):
+        prescription = self.get_object()
+        dispensed_items = PrescriptionMedicine.objects.filter(prescription=prescription, is_active=False)
+
+        if not dispensed_items.exists():
+            return Response(
+                {"detail": "No dispensed medicines found for this prescription yet."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        total = sum(item.medicine.unit_price for item in dispensed_items)
+        appointment = prescription.consultation.appointment
+
+        existing = Bill.objects.filter(appointment=appointment, patient=prescription.patient, payment_status='pending').first()
+        if existing:
+            existing.total_amount = total
+            existing.save()
+            bill = existing
+        else:
+            staff = Staff.objects.filter(user__username='pharma').first()  # adjust username if needed
+            bill = Bill.objects.create(
+                patient=prescription.patient,
+                appointment=appointment,
+                total_amount=total,
+                bill_date=timezone.now().date(),
+                payment_status='pending',
+                created_by=staff,
+                is_active=True
+            )
+
+        return Response(BillSerializer(bill).data, status=status.HTTP_200_OK)
+
+class BillViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Bill.objects.all().order_by('-bill_date')
+    serializer_class = BillSerializer
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    @action(detail=True, methods=['post'])
+    def pay(self, request, pk=None):
+        bill = self.get_object()
+        if bill.payment_status == 'paid':
+            return Response({"detail": "This bill is already paid."}, status=status.HTTP_400_BAD_REQUEST)
+
+        Payment.objects.create(
+            bill=bill,
+            amount=bill.total_amount,
+            payment_method=request.data.get('payment_method', 'cash'),
+            payment_date=timezone.now(),
+            is_active=True
+        )
+        bill.payment_status = 'paid'
+        bill.save()
+        return Response(BillSerializer(bill).data, status=status.HTTP_200_OK)
+
+class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Payment.objects.all().order_by('-payment_date')
+    serializer_class = PaymentSerializer
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        bill_id = self.request.query_params.get('bill')
+        if bill_id is not None:
+            qs = qs.filter(bill_id=bill_id)
+        return qs
