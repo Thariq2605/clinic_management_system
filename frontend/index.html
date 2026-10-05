@@ -27,6 +27,8 @@
       const doctorToken = localStorage.getItem("access_token");
       const doctorId = localStorage.getItem("doctor_id");
       const pharmacistUser = localStorage.getItem("user");
+      const adminToken = localStorage.getItem("admin_token") || localStorage.getItem("access_token");
+      const currentUser = localStorage.getItem("current_user");
 
       if (receptionistUser) {
         window.location.href = "dashboard.html";
@@ -34,6 +36,8 @@
         window.location.href = "doctor/dashboard.html";
       } else if (pharmacistUser) {
         window.location.href = "pharmacist/index.html";
+      } else if (adminToken && currentUser) {
+        window.location.href = "pages/admin_dashboard.html";
       } else {
         window.location.href = "login.html";
       }

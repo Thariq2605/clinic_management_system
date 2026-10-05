@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Billing | ClinixOne</title>
+
+    <!-- ClinixOne custom CSS -->
+    <link rel="stylesheet" href="../css/admin.css">
+
+    <style>
+        .page-card {
+            background: #ffffff;
+            border: 1px solid #e1e8f0;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(20, 55, 90, 0.06);
+            padding: 18px;
+        }
+
+        .billing-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .billing-search {
+            width: 250px;
+            height: 34px;
+
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
+            border: 1px solid #e1e8f0;
+            border-radius: 6px;
+            padding: 0 10px;
+        }
+
+        .billing-search input {
+            width: 100%;
+            border: none;
+            outline: none;
+            font-size: 9px;
+        }
+
+        .billing-filter,
+        .billing-date {
+            height: 34px;
+            padding: 0 10px;
+
+            border: 1px solid #e1e8f0;
+            border-radius: 6px;
+
+            background: #ffffff;
+            color: #526276;
+
+            font-size: 9px;
+        }
+
+        .add-bill-btn {
+            height: 34px;
+            padding: 0 14px;
+
+            background: #1769e8;
+            color: #ffffff;
+
+            border: none;
+            border-radius: 6px;
+
+            font-size: 9px;
+            font-weight: 600;
+
+            cursor: pointer;
+        }
+
+        .add-bill-btn:hover {
+            background: #0f5fd6;
+        }
+
+        .bill-id {
+            color: #1769e8;
+            font-size: 8px;
+            font-weight: 700;
+        }
+
+        .patient-name {
+            color: #17263a;
+            font-size: 8px;
+            font-weight: 600;
+        }
+
+        .patient-id {
+            color: #718096;
+            font-size: 7px;
+            margin-top: 2px;
+        }
+
+        .appointment-text {
+            color: #526276;
+            font-size: 8px;
+        }
+
+        .amount {
+            color: #17263a;
+            font-size: 8px;
+            font-weight: 600;
+        }
+
+        .balance {
+            color: #df5366;
+            font-size: 8px;
+            font-weight: 700;
+        }
+
+        .paid {
+            color: #15966b;
+            font-size: 8px;
+            font-weight: 700;
+        }
+
+        .bill-date {
+            color: #17263a;
+            font-size: 8px;
+        }
+
+        .paid-badge,
+        .partial-badge,
+        .unpaid-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 7px;
+            font-weight: 700;
+        }
+
+        .paid-badge {
+            background: #e6f7f0;
+            color: #15966b;
+        }
+
+        .partial-badge {
+            background: #fff4df;
+            color: #e99a22;
+        }
+
+        .unpaid-badge {
+            background: #fdebee;
+            color: #df5366;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .action-btn {
+            border: none;
+            background: transparent;
+            font-size: 8px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .view-btn {
+            color: #735be2;
+        }
+
+        .edit-btn {
+            color: #1769e8;
+        }
+
+        .delete-btn {
+            color: #df5366;
+        }
+
+        .action-btn:hover {
+            background: #f4f7fb;
+        }
+
+        .billing-summary {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .summary-card {
+            border: 1px solid #e1e8f0;
+            border-radius: 7px;
+            padding: 14px;
+            background: #ffffff;
+        }
+
+        .summary-label {
+            color: #718096;
+            font-size: 8px;
+            margin-bottom: 6px;
+        }
+
+        .summary-value {
+            color: #17263a;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .summary-value.green {
+            color: #15966b;
+        }
+
+        .summary-value.orange {
+            color: #e99a22;
+        }
+
+        .summary-value.red {
+            color: #df5366;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            color: #718096;
+            font-size: 8px;
+        }
+
+        .pagination-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .page-btn {
+            min-width: 27px;
+            height: 27px;
+
+            border: 1px solid #e1e8f0;
+            background: #ffffff;
+
+            border-radius: 5px;
+
+            color: #526276;
+            font-size: 8px;
+            cursor: pointer;
+        }
+
+        .page-btn.active {
+            background: #1769e8;
+            border-color: #1769e8;
+            color: #ffffff;
+        }
+
+        @media (max-width: 1100px) {
+
+            .billing-summary {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .billing-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+
+            .toolbar-left {
+                width: 100%;
+            }
+
+            .billing-search {
+                width: 100%;
+            }
+
+            .table-wrapper {
+                overflow-x: auto;
+            }
+        }
+
+        @media (max-width: 600px) {
+
+            .billing-summary {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+
+<body>
+
+<div class="admin-layout">
+
+
+    <!-- ================= SIDEBAR ================= -->
+
+    <aside class="sidebar">
+
+        <div class="sidebar-logo">
+
+            <div class="logo-icon">
+                +
+            </div>
+
+            <div class="logo-text">
+
+                <h2>CLINIC SYSTEM</h2>
+
+                <span>
+                    HEALTHCARE MANAGEMENT
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <nav class="sidebar-nav">
+
+            <a href="admin_dashboard.html" class="nav-item">
+                <span class="nav-icon">⌂</span>
+                <span>Dashboard</span>
+            </a>
+
+            <a href="users.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Users</span>
+            </a>
+
+            <a href="doctors.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Doctors</span>
+            </a>
+
+            <a href="receptionists.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Receptionists</span>
+            </a>
+
+            <a href="patients.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Patients</span>
+            </a>
+
+            <a href="departments.html" class="nav-item">
+                <span class="nav-icon">▦</span>
+                <span>Departments</span>
+            </a>
+
+            <a href="specializations.html" class="nav-item">
+                <span class="nav-icon">✦</span>
+                <span>Specializations</span>
+            </a>
+
+            <a href="medicines.html" class="nav-item">
+                <span class="nav-icon">▣</span>
+                <span>Medicines</span>
+            </a>
+
+            <a href="lab_tests.html" class="nav-item">
+                <span class="nav-icon">⚗</span>
+                <span>Lab Tests</span>
+            </a>
+
+            <a href="appointments.html" class="nav-item">
+                <span class="nav-icon">□</span>
+                <span>Appointments</span>
+            </a>
+
+            <a href="billing.html" class="nav-item active">
+                <span class="nav-icon">▤</span>
+                <span>Billing</span>
+            </a>
+
+            <a href="payments.html" class="nav-item">
+                <span class="nav-icon">◉</span>
+                <span>Payments</span>
+            </a>
+
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">▥</span>
+                <span>Reports</span>
+            </a>
+
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙</span>
+                <span>Settings</span>
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-footer">
+            ClinixOne Admin Panel<br>
+            Version 1.0
+        </div>
+
+    </aside>
+
+
+    <!-- ================= MAIN CONTENT ================= -->
+
+    <main class="main-content">
+
+
+        <!-- HEADER -->
+
+        <header class="top-header">
+
+            <div class="breadcrumb">
+
+                <span>Admin</span>
+                <span>/</span>
+                <strong>Billing</strong>
+
+            </div>
+
+
+            <div class="header-right">
+
+                <div class="search-box">
+
+                    <span>⌕</span>
+
+                    <input
+                        type="text"
+                        placeholder="Search..."
+                    >
+
+                    <small>Ctrl K</small>
+
+                </div>
+
+
+                <button class="notification-btn">
+                    ♧
+                </button>
+
+
+                <div class="profile">
+
+                    <div class="profile-avatar">
+                        AM
+                    </div>
+
+                    <span class="profile-name">
+                        Ava Morgan
+                    </span>
+
+                </div>
+
+            </div>
+
+        </header>
+
+
+        <!-- ================= PAGE CONTENT ================= -->
+
+        <section class="dashboard-content">
+
+
+            <!-- PAGE HEADING -->
+
+            <div class="page-heading">
+
+                <div>
+
+                    <h1>
+                        Billing
+                    </h1>
+
+                    <p>
+                        Manage patient bills and outstanding balances.
+                    </p>
+
+                </div>
+
+
+                <div class="heading-actions">
+
+                    <button
+                        class="primary-btn add-bill-btn"
+                    >
+                        + Create Bill
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================= SUMMARY ================= -->
+
+            <div class="billing-summary">
+
+                <div class="summary-card">
+
+                    <div class="summary-label">
+                        TOTAL BILLS
+                    </div>
+
+                    <div
+                        class="summary-value"
+                        id="totalBills"
+                    >
+                        0
+                    </div>
+
+                </div>
+
+
+                <div class="summary-card">
+
+                    <div class="summary-label">
+                        TOTAL BILLED
+                    </div>
+
+                    <div class="summary-value" id="totalBilled">
+                        ₹0.00
+                    </div>
+
+                </div>
+
+
+                <div class="summary-card">
+
+                    <div class="summary-label">
+                        TOTAL PAID
+                    </div>
+
+                    <div class="summary-value green" id="totalPaid">
+                        ₹0.00
+                    </div>
+
+                </div>
+
+
+                <div class="summary-card">
+
+                    <div class="summary-label">
+                        OUTSTANDING
+                    </div>
+
+                    <div class="summary-value red" id="totalOutstanding">
+                        ₹0.00
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================= BILL TABLE CARD ================= -->
+
+            <div class="page-card">
+
+
+                <!-- TOOLBAR -->
+
+                <div class="billing-toolbar">
+
+                    <div class="toolbar-left">
+
+                        <div class="billing-search">
+
+                            <span>⌕</span>
+
+                            <input
+                                type="text"
+                                id="billingSearch"
+                                placeholder="Search patient or bill..."
+                            >
+
+                        </div>
+
+
+                        <input
+                            type="date"
+                            id="billingDate"
+                            class="billing-date"
+                        >
+
+
+                        <select
+                            id="paymentStatusFilter"
+                            class="billing-filter"
+                        >
+
+                            <option value="all">
+                                All Status
+                            </option>
+
+                            <option value="paid">
+                                Paid
+                            </option>
+
+                            <option value="partial">
+                                Partially Paid
+                            </option>
+
+                            <option value="unpaid">
+                                Unpaid
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ================= TABLE ================= -->
+
+                <div class="table-wrapper"><table id="billingTable">
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    BILL
+                                </th>
+
+                                <th>
+                                    PATIENT
+                                </th>
+
+                                <th>
+                                    APPOINTMENT
+                                </th>
+
+                                <th>
+                                    TOTAL
+                                </th>
+
+                                <th>
+                                    PAID
+                                </th>
+
+                                <th>
+                                    BALANCE
+                                </th>
+
+                                <th>
+                                    BILL DATE
+                                </th>
+
+                                <th>
+                                    STATUS
+                                </th>
+
+                                <th>
+                                    ACTIONS
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody id="billsTableBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+
+                <!-- PAGINATION -->
+
+                <div class="pagination">
+                    <span id="resultCount">Showing 0 bills</span>
+                </div>
+            </div>
+
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<!-- ================= JAVASCRIPT ================= -->
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/admin.js"></script>
+<script src="../js/billing.js"></script>
+
+
+<!-- ================= BILL MODAL ================= -->
+<div class="modal-overlay" id="billModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 id="billModalTitle">Create New Bill</h2>
+            <button class="close-modal" onclick="closeModal('billModal')">✕</button>
+        </div>
+        <form id="billForm">
+            <div class="modal-body">
+                <div class="form-error" id="billFormError"></div>
+                
+                <div class="form-grid">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Patient *</label>
+                        <select id="billPatient" required>
+                            <option value="">Loading patients...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Linked Appointment *</label>
+                        <select id="billAppointment" required>
+                            <option value="">Loading appointments...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Bill Date *</label>
+                        <input type="date" id="billDateInput" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Total Amount (₹) *</label>
+                        <input type="number" id="billTotalAmount" step="0.01" min="0" required placeholder="0.00">
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Payment Status</label>
+                        <select id="billPaymentStatus">
+                            <option value="pending">Pending</option>
+                            <option value="partial">Partial</option>
+                            <option value="paid">Paid</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="secondary-btn" onclick="closeModal('billModal')">Cancel</button>
+                <button type="submit" class="primary-btn" id="saveBillBtn">Save Bill</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>
