@@ -55,12 +55,12 @@ document.addEventListener("DOMContentLoaded", function () {
             text: "Medical Records"
         },
         {
-            page: "#",
+            page: "profile.html",
             icon: "◎",
             text: "Profile"
         },
         {
-            page: "#",
+            page: "settings.html",
             icon: "⚙",
             text: "Settings"
         }
