@@ -958,6 +958,42 @@ body {
     border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+@media (max-height: 700px) and (min-width: 851px) {
+    .sidebar {
+        padding-top: 12px;
+        padding-bottom: 10px;
+    }
+
+    .sidebar-logo {
+        margin-bottom: 12px;
+    }
+
+    .sidebar-nav {
+        flex: 1 1 auto;
+        min-height: 0;
+        gap: 2px;
+        overflow-y: auto;
+    }
+
+    .nav-item {
+        min-height: 34px;
+        padding-top: 7px;
+        padding-bottom: 7px;
+    }
+
+    .sidebar-help {
+        flex-shrink: 0;
+        padding-top: 8px;
+        padding-bottom: 8px;
+    }
+
+    .sidebar-bottom {
+        flex-shrink: 0;
+        margin-top: 6px;
+        padding-top: 5px;
+    }
+}
+
 
 /* =========================================
    MAIN CONTENT

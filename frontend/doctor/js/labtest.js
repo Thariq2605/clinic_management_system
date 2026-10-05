@@ -149,6 +149,41 @@ const doctorName =
         "doctor_name"
     );
 
+const pageSearch = document.querySelector(".topbar .search-box input");
+let searchableList = null;
+
+if (pageSearch) pageSearch.addEventListener("input", applyLabTestSearch);
+
+function setLabTestSearchList(list) {
+    searchableList = list;
+    applyLabTestSearch();
+}
+
+function applyLabTestSearch() {
+    if (!searchableList || !pageSearch) return;
+    const query = pageSearch.value.trim().toLocaleLowerCase();
+    const rows = Array.from(searchableList.children).filter(row =>
+        row.classList.contains("consultation-row") || row.classList.contains("history-item")
+    );
+    let visibleRows = 0;
+    rows.forEach(row => {
+        const matches = !query || row.textContent.toLocaleLowerCase().includes(query);
+        row.style.display = matches ? "" : "none";
+        if (matches) visibleRows += 1;
+    });
+    let noMatches = searchableList.querySelector(":scope > .search-empty-state");
+    if (query && rows.length && !visibleRows) {
+        if (!noMatches) {
+            noMatches = document.createElement("div");
+            noMatches.className = "empty-state search-empty-state";
+            noMatches.textContent = "No matching results found.";
+            searchableList.appendChild(noMatches);
+        }
+    } else if (noMatches) {
+        noMatches.remove();
+    }
+}
+
 
 if (doctorName) {
 
@@ -167,12 +202,16 @@ if (!doctorId) {
     document.getElementById("labTestHome").style.display = "none";
     document.getElementById("labTestFormCard").style.display = "none";
     document.getElementById("labTestHistory").style.display = "block";
+    if (params.get("mode") === "history" && !consultationId && !requestedLabTestId) {
+        setLabTestSearchList(document.getElementById("labTestHistoryList"));
+    }
     loadLabTestHistory();
 } else if (!consultationId) {
     document.querySelector(".lab-patient-card").style.display = "none";
     document.querySelector(".page-header p").textContent = "Select a prescription to create a lab test request";
     document.getElementById("labTestFormCard").style.display = "none";
     document.getElementById("labTestHome").style.display = "block";
+    setLabTestSearchList(document.getElementById("prescriptionOptions"));
     loadLabPrescriptionOptions();
 } else {
     loadConsultationContext();
@@ -187,6 +226,7 @@ async function loadLabPrescriptionOptions() {
         const prescriptions = await response.json();
         if (!prescriptions.length) { target.innerHTML = `<div class="empty-state"><h3>No prescriptions available</h3><p>Create a prescription from a consultation before requesting lab tests.</p></div>`; return; }
         target.innerHTML = prescriptions.map(item => `<div class="consultation-row"><div class="consultation-patient"><div class="patient-info"><h3>${escapeHtml(item.patient_name || `Patient #${item.patient}`)}</h3><span>Consultation #${item.consultation} · Prescription #${item.prescription_id}</span></div></div><div class="consultation-column"><span class="column-label">Date</span><strong>${escapeHtml(item.prescription_date)}</strong></div><button class="primary-btn" onclick="createLabRequest(${item.consultation}, ${item.prescription_id})">Request Lab Tests</button></div>`).join("");
+        applyLabTestSearch();
     } catch (error) { target.innerHTML = `<div class="error-message">${escapeHtml(error.message)}</div>`; }
 }
 
@@ -213,6 +253,7 @@ async function loadLabTestHistory() {
                     : list;
         if (requestedLabTestId && !selected.length) { target.textContent = "Lab test request not found."; return; }
         target.innerHTML = selected.map(item => `<div class="history-item"><strong>${item.test_name || `Test #${item.test}`}</strong> · Patient ${item.patient_name || `#${item.patient_id}`} · Consultation #${item.consultation_id}<p>${item.instructions || "No instructions"}</p>${!requestedLabTestId ? `<button class="view-button" onclick="window.location.href='labtest.html?lab_test_id=${encodeURIComponent(item.prescription_lab_test_id)}&mode=view'">View</button>` : ""}</div>`).join("");
+        applyLabTestSearch();
     } catch (error) { showError(error.message); }
 }
 

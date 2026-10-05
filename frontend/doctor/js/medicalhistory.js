@@ -17,6 +17,8 @@ const params =
 
 const patientId =
     params.get("patient_id");
+const consultationId =
+    params.get("consultation_id");
 
 
 const doctorId =
@@ -45,6 +47,7 @@ const errorMessage =
     document.getElementById(
         "errorMessage"
     );
+const historySearch = document.querySelector(".topbar .search-box input");
 
 
 const doctorName =
@@ -75,6 +78,26 @@ if (!doctorId) {
     showError("Doctor information is missing. Please log in again.");
 } else {
     loadMedicalHistory();
+}
+
+if (historySearch) {
+    historySearch.addEventListener("input", filterMedicalHistory);
+}
+
+function filterMedicalHistory() {
+    if (!historySearch) return;
+    const query = historySearch.value.trim().toLocaleLowerCase();
+    const rows = historyContent.querySelectorAll(".history-item, .prescription-history-item");
+    rows.forEach(row => {
+        const searchableText = `${row.textContent} ${row.dataset.searchText || ""}`.toLocaleLowerCase();
+        row.style.display = !query || searchableText.includes(query) ? "" : "none";
+    });
+}
+
+function getHistorySearchText(value) {
+    if (value === null || value === undefined) return "";
+    if (typeof value !== "object") return String(value);
+    return Object.values(value).map(getHistorySearchText).join(" ");
 }
 
 
@@ -160,7 +183,7 @@ async function loadMedicalHistory() {
         }
 
 
-        const data =
+        let data =
             await response.json();
 
 
@@ -170,7 +193,26 @@ async function loadMedicalHistory() {
         );
 
 
-        displayHistory(data);
+        let selectedPatientId = patientId;
+        if (!selectedPatientId && consultationId) {
+            const selectedConsultation = (data.consultations || []).find(
+                item => String(item.consultation_id) === String(consultationId)
+            );
+            selectedPatientId = selectedConsultation?.patientdetails?.patient_id;
+            if (selectedPatientId) {
+                data = {
+                    ...data,
+                    medical_history: (data.medical_history || []).filter(item => String(item.patient) === String(selectedPatientId)),
+                    consultations: (data.consultations || []).filter(item => String(item.patientdetails?.patient_id) === String(selectedPatientId)),
+                    prescriptions: (data.prescriptions || []).filter(item => String(item.patient) === String(selectedPatientId)),
+                    lab_tests: (data.lab_tests || []).filter(item => String(item.patient_id) === String(selectedPatientId))
+                };
+            } else {
+                data = {};
+            }
+        }
+
+        displayHistory(data, selectedPatientId);
 
     }
 
@@ -196,7 +238,7 @@ async function loadMedicalHistory() {
    DISPLAY HISTORY
 ============================== */
 
-function displayHistory(data) {
+function displayHistory(data, selectedPatientId = patientId) {
 
     loadingMessage.style.display =
         "none";
@@ -204,6 +246,11 @@ function displayHistory(data) {
 
     historyContent.style.display =
         "block";
+
+    const patientHeader = document.querySelector(".history-patient-card");
+    if (patientHeader) {
+        patientHeader.style.display = selectedPatientId ? "" : "none";
+    }
 
 
     /*
@@ -219,7 +266,9 @@ function displayHistory(data) {
     const consultations = data.consultations || [];
     const prescriptions = data.prescriptions || [];
     const labTests = data.lab_tests || [];
-    const patient = records[0] || consultations[0]?.patientdetails || prescriptions[0] || labTests[0] || {};
+    const patient = selectedPatientId
+        ? records[0] || consultations[0]?.patientdetails || prescriptions[0] || labTests[0] || {}
+        : {};
 
 
     /* ==========================
@@ -229,20 +278,20 @@ function displayHistory(data) {
     document.getElementById(
         "patientName"
     ).textContent =
-        patient.patient_name || patient.full_name || (patientId ? "Patient Medical History" : "All Patient Histories");
+        patient.patient_name || patient.full_name || (selectedPatientId ? "Patient Medical History" : "");
 
 
     document.getElementById(
         "patientId"
     ).textContent =
-        patient.patient ?? patient.patient_id ?? patientId ?? "-";
+        patient.patient ?? patient.patient_id ?? selectedPatientId ?? "";
 
 
     document.getElementById(
         "patientInitial"
     ).textContent =
         getInitial(
-            patient.patient_name || patient.full_name
+            patient.patient_name || patient.full_name || (selectedPatientId ? "Patient" : "?")
         );
 
 
@@ -257,9 +306,9 @@ function displayHistory(data) {
        PRESCRIPTIONS
     ========================== */
 
-    displayMedicalRecords(records);
     displayPrescriptions(prescriptions);
     displayLabTests(labTests);
+    filterMedicalHistory();
 
 }
 
@@ -386,6 +435,7 @@ function displayConsultations(
             `;
 
 
+            item.dataset.searchText = getHistorySearchText(consultation);
             container.appendChild(
                 item
             );
@@ -407,6 +457,7 @@ function displayMedicalRecords(records) {
         const item = document.createElement("div");
         item.className = "history-item";
         item.innerHTML = `<div class="history-item-header"><strong>Record #${record.record_id} · ${record.patient_name || `Patient #${record.patient}`}</strong><span class="history-date">${formatDate(record.created_at)}</span></div><div class="history-label">Consultation #${record.consultation}</div><div class="history-label">Diagnosis</div><div class="history-value">${record.diagnosis || "-"}</div><div class="history-label">Notes</div><div class="history-value">${record.medical_notes || "-"}</div>`;
+        item.dataset.searchText = getHistorySearchText(record);
         container.appendChild(item);
     });
 }
@@ -422,6 +473,7 @@ function displayLabTests(requests) {
         const item = document.createElement("div");
         item.className = "history-item";
         item.innerHTML = `<div class="history-item-header"><strong>${request.test_name || `Test #${request.test}`} · ${request.patient_name || `Patient #${request.patient_id}`}</strong><span>Consultation #${request.consultation_id}</span></div><div class="history-value">${request.instructions || "No instructions"}</div>`;
+        item.dataset.searchText = getHistorySearchText(request);
         container.appendChild(item);
     });
 }
@@ -486,10 +538,10 @@ function displayPrescriptions(
                 "-";
 
 
-            const medicines =
-                prescription.medicines ||
-                prescription.prescription_medicines ||
-                [];
+            const medicines = [
+                prescription.medicines,
+                prescription.prescription_medicines
+            ].find(items => Array.isArray(items) && items.length > 0) || [];
 
 
             let medicineHTML = "";
@@ -506,11 +558,7 @@ function displayPrescriptions(
                             <div class="medicine-history-row">
 
                                 <strong>
-
-                                    ${medicine.medicine_name ||
-                                      medicine.medicine ||
-                                      "Medicine"}
-
+                                    ${medicine.medicine_name || medicine.medicine?.medicine_name || medicine.medicine || "Medicine"}
                                 </strong>
 
                                 <br>
@@ -583,6 +631,7 @@ function displayPrescriptions(
             `;
 
 
+            item.dataset.searchText = getHistorySearchText(prescription);
             container.appendChild(
                 item
             );

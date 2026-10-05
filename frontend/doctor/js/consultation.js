@@ -39,6 +39,46 @@ const errorMessage =
 const doctorName =
     localStorage.getItem("doctor_name");
 
+const pageSearch = document.querySelector(".topbar .search-box input");
+let searchableList = null;
+
+if (pageSearch) {
+    pageSearch.addEventListener("input", applyConsultationSearch);
+}
+
+function setConsultationSearchList(list) {
+    searchableList = list;
+    applyConsultationSearch();
+}
+
+function applyConsultationSearch() {
+    if (!searchableList || !pageSearch) return;
+
+    const query = pageSearch.value.trim().toLocaleLowerCase();
+    const rows = Array.from(searchableList.children).filter(row =>
+        row.classList.contains("consultation-row")
+    );
+    let visibleRows = 0;
+
+    rows.forEach(row => {
+        const matches = !query || row.textContent.toLocaleLowerCase().includes(query);
+        row.style.display = matches ? "" : "none";
+        if (matches) visibleRows += 1;
+    });
+
+    let noMatches = searchableList.querySelector(":scope > .search-empty-state");
+    if (query && rows.length && !visibleRows) {
+        if (!noMatches) {
+            noMatches = document.createElement("div");
+            noMatches.className = "empty-state search-empty-state";
+            noMatches.textContent = "No matching consultations found.";
+            searchableList.appendChild(noMatches);
+        }
+    } else if (noMatches) {
+        noMatches.remove();
+    }
+}
+
 
 /* -----------------------------
    DOCTOR NAME
@@ -109,6 +149,10 @@ function showListMode() {
         listView.style.display = "block";
     }
 
+    if (pageMode === "history") {
+        setConsultationSearchList(document.getElementById("consultationList"));
+    }
+
     loadConsultations();
 }
 
@@ -116,6 +160,7 @@ function showHomeMode() {
     if (createView) createView.style.display = "none";
     if (listView) listView.style.display = "none";
     if (homeView) homeView.style.display = "block";
+    setConsultationSearchList(document.getElementById("availableAppointments"));
     loadAvailableAppointments();
 }
 
@@ -143,6 +188,7 @@ async function loadAvailableAppointments() {
                 : `<button class="primary-btn" onclick="startAppointmentConsultation(${item.appointment_id})">Start Consultation</button>`;
             return `<div class="consultation-row"><div class="consultation-patient"><div class="patient-info"><h3>${escapeHtml(item.patient_name || "Patient")}</h3><span>Patient ID: ${escapeHtml(item.patient)} · Token: ${escapeHtml(item.token_number)}</span></div></div><div class="consultation-column"><span class="column-label">Appointment</span><strong>#${item.appointment_id}</strong></div><div class="consultation-column"><span class="column-label">Time</span><strong>${escapeHtml(item.appointment_time)}</strong></div>${action}</div>`;
         }).join("");
+        applyConsultationSearch();
     } catch (error) {
         console.error("Available appointments error:", error);
         target.innerHTML = `<div class="error-message">${escapeHtml(error.message || "Unable to load appointments.")}</div>`;
@@ -232,6 +278,7 @@ async function loadConsultations() {
             displayConsultationDetail(consultations.find(item => String(item.consultation_id) === requestedConsultationId));
         } else {
             displayConsultations(consultations);
+            applyConsultationSearch();
         }
 
 

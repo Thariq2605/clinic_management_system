@@ -796,7 +796,7 @@ async function refreshAccessToken() {
 function goToPatients() {
 
     window.location.href =
-        "patient.html";
+        "patients.html";
 }
 
 

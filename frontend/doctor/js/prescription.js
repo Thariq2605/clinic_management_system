@@ -140,6 +140,41 @@ const doctorName =
         "doctor_name"
     );
 
+const pageSearch = document.querySelector(".topbar .search-box input");
+let searchableList = null;
+
+if (pageSearch) pageSearch.addEventListener("input", applyPrescriptionSearch);
+
+function setPrescriptionSearchList(list) {
+    searchableList = list;
+    applyPrescriptionSearch();
+}
+
+function applyPrescriptionSearch() {
+    if (!searchableList || !pageSearch) return;
+    const query = pageSearch.value.trim().toLocaleLowerCase();
+    const rows = Array.from(searchableList.children).filter(row =>
+        row.classList.contains("consultation-row") || row.classList.contains("history-item")
+    );
+    let visibleRows = 0;
+    rows.forEach(row => {
+        const matches = !query || row.textContent.toLocaleLowerCase().includes(query);
+        row.style.display = matches ? "" : "none";
+        if (matches) visibleRows += 1;
+    });
+    let noMatches = searchableList.querySelector(":scope > .search-empty-state");
+    if (query && rows.length && !visibleRows) {
+        if (!noMatches) {
+            noMatches = document.createElement("div");
+            noMatches.className = "empty-state search-empty-state";
+            noMatches.textContent = "No matching results found.";
+            searchableList.appendChild(noMatches);
+        }
+    } else if (noMatches) {
+        noMatches.remove();
+    }
+}
+
 
 if (doctorName) {
 
@@ -183,11 +218,15 @@ if (!doctorId) {
     document.querySelector(".page-header p").textContent = "Previously created prescriptions";
     document.getElementById("prescriptionFormCard").style.display = "none";
     document.getElementById("prescriptionHistory").style.display = "block";
+    if (pageMode === "history" && !consultationId && !requestedPrescriptionId) {
+        setPrescriptionSearchList(document.getElementById("prescriptionHistoryList"));
+    }
     loadPrescriptionHistory();
 } else if (!consultationId) {
     document.querySelector(".prescription-patient-card").style.display = "none";
     document.getElementById("prescriptionFormCard").style.display = "none";
     document.getElementById("prescriptionHome").style.display = "block";
+    setPrescriptionSearchList(document.getElementById("consultationOptions"));
     loadPrescriptionOptions();
 } else {
     loadConsultationContext();
@@ -208,6 +247,7 @@ async function loadPrescriptionOptions() {
         const available = consultations.filter(item => !existing.has(String(item.consultation_id)));
         if (!available.length) { target.innerHTML = `<div class="empty-state"><h3>No consultations need a prescription</h3><p>All consultations have a prescription, or none have been recorded yet.</p></div>`; return; }
         target.innerHTML = available.map(item => { const patient = item.patientdetails || {}; return `<div class="consultation-row"><div class="consultation-patient"><div class="patient-info"><h3>${escapeHtml(patient.full_name || "Patient")}</h3><span>Patient ID: ${escapeHtml(patient.patient_id)} · Consultation #${item.consultation_id}</span></div></div><div class="consultation-column"><span class="column-label">Date</span><strong>${escapeHtml(item.consultation_date)}</strong></div><div class="consultation-column diagnosis-column"><span class="column-label">Diagnosis</span><strong>${escapeHtml(item.diagnosis)}</strong></div><button class="primary-btn" onclick="createPrescriptionFor(${item.consultation_id})">Create Prescription</button></div>`; }).join("");
+        applyPrescriptionSearch();
     } catch (error) { target.innerHTML = `<div class="error-message">${escapeHtml(error.message)}</div>`; }
 }
 
@@ -229,6 +269,7 @@ async function loadPrescriptionHistory() {
                 : list;
         if (requestedPrescriptionId && !selected.length) { target.textContent = "Prescription not found."; return; }
         target.innerHTML = selected.map(item => `<div class="history-item"><strong>Prescription #${item.prescription_id}</strong> · Patient ${item.patient_name || `#${item.patient}`} · Consultation #${item.consultation} · ${item.prescription_date}<ul>${(item.medicines || []).map(m => `<li>${m.medicine_name || `Medicine #${m.medicine}`} — ${m.dosage}; ${m.frequency}; ${m.duration} days</li>`).join("")}</ul>${!requestedPrescriptionId ? `<button class="view-button" onclick="window.location.href='prescription.html?prescription_id=${encodeURIComponent(item.prescription_id)}&mode=view'">View</button>` : ""}</div>`).join("");
+        applyPrescriptionSearch();
     } catch (error) { showError(error.message); }
 }
 
