@@ -712,7 +712,7 @@ body {
 
     width: var(--doctor-sidebar-width);
 
-    background: #092445;
+    background: #0f172a;
 
     padding: 22px 12px 18px;
 
@@ -734,7 +734,13 @@ body {
 
     padding: 0 8px;
 
-    margin-bottom: 30px;
+    margin-bottom: 24px;
+}
+
+.sidebar-logo img {
+    height: 38px;
+    max-width: 100%;
+    display: block;
 }
 
 
@@ -834,7 +840,7 @@ body {
 
 
 .nav-item.active {
-    background: #2868e8;
+    background: #0ea5e9;
 
     color: white;
     font-weight: 600;
@@ -1258,14 +1264,14 @@ body {
 .primary-button {
     border: none;
 
-    background: #2868e8;
+    background: #0ea5e9;
 
     color: white;
 }
 
 
 .primary-button:hover {
-    background: #1f58cc;
+    background: #0284c7;
 }
 
 

@@ -12,7 +12,7 @@ async function loadLabTests() {
     const accessToken = getAccessToken();
 
     if (!accessToken) {
-        window.location.href = "login.html";
+        window.location.href = "../login.html";
         return;
     }
 

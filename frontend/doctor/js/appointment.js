@@ -33,7 +33,7 @@ const searchInput =
 async function loadAppointments() {
 
     if (!doctorId) {
-        window.location.href = "login.html";
+        window.location.href = "../login.html";
         return;
     }
 

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>MEDICARE - Patients Management</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/style.css?v=3.0">
+</head>
+<body>
+
+<div id="app-wrapper">
+  <!-- Mobile Backdrop -->
+  <div id="sidebar-backdrop"></div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <img src="assets/logo-white.svg" alt="MEDICARE" height="38" width="182" style="height: 38px; width: auto; max-width: 100%; display: block;">
+    </div>
+
+    <ul class="nav-list">
+      <li class="nav-item">
+        <a href="dashboard.html" class="nav-link">
+          <i class="bi bi-speedometer2"></i>
+          <span>Dashboard</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="patients.html" class="nav-link active">
+          <i class="bi bi-people"></i>
+          <span>Patients</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="appointments.html" class="nav-link">
+          <i class="bi bi-calendar2-check"></i>
+          <span>Appointments</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="billing.html" class="nav-link">
+          <i class="bi bi-credit-card-2-front"></i>
+          <span>Billing</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="doctors.html" class="nav-link">
+          <i class="bi bi-person-badge"></i>
+          <span>Doctors</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <a href="#" class="nav-link text-danger p-2 btn-logout-trigger">
+        <i class="bi bi-box-arrow-right"></i>
+        <span>Logout</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <div id="content-wrapper">
+    <!-- Top Navbar -->
+    <header class="top-navbar">
+      <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-light d-lg-none border-0 p-1" id="sidebar-toggle-btn" aria-label="Toggle Navigation">
+          <i class="bi bi-list fs-4"></i>
+        </button>
+        <div>
+          <h1 class="page-title h4 mb-0">Patients Directory</h1>
+          <small class="text-muted">Register, search and manage patient profiles</small>
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center gap-3">
+        <div class="user-badge">
+          <div class="user-avatar" id="navbar-user-avatar">R</div>
+          <div class="d-none d-sm-block text-end">
+            <div class="fw-semibold text-dark small" id="navbar-user-name">Receptionist</div>
+            <small class="text-muted" style="font-size: 0.75rem;">Reception Desk</small>
+          </div>
+        </div>
+        <button class="btn btn-outline-danger btn-sm rounded-pill px-3 btn-logout-trigger" title="Sign Out">
+          <i class="bi bi-box-arrow-right me-1"></i> Logout
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Search & Action Toolbar -->
+      <div class="card-custom p-3 mb-4">
+        <div class="row g-2 align-items-center">
+          <div class="col-12 col-md-8 col-lg-6">
+            <div class="input-group">
+              <span class="input-group-text bg-white border-end-0 text-muted">
+                <i class="bi bi-search"></i>
+              </span>
+              <input
+                type="text"
+                class="form-control border-start-0 ps-0"
+                id="patient-search-input"
+                placeholder="Search by Patient Name, Phone, Email, or Patient ID..."
+              >
+              <button class="btn btn-primary px-3" type="button" id="patient-search-btn">
+                Search
+              </button>
+              <button class="btn btn-outline-secondary" type="button" id="patient-search-clear" title="Clear">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
+          </div>
+          <div class="col-12 col-md-4 col-lg-6 text-md-end mt-2 mt-md-0">
+            <button class="btn btn-teal" data-bs-toggle="modal" data-bs-target="#addPatientModal">
+              <i class="bi bi-person-plus-fill me-1"></i> Register New Patient
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Patients Table Card -->
+      <div class="card-custom p-3 p-md-4">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h2 class="h6 fw-bold mb-0">Registered Patients List</h2>
+          <span class="text-muted small">Max 100 results per search query</span>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="patients-loading-spinner" class="text-center py-5 d-none">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading patients...</span>
+          </div>
+          <div class="text-muted small mt-2">Fetching patient records...</div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="patients-empty-state" class="empty-state d-none">
+          <i class="bi bi-person-slash"></i>
+          <h3 class="h6 text-muted">No patient records found</h3>
+          <p class="small text-muted mb-3">Try searching with a different name or mobile number, or register a new patient.</p>
+          <button class="btn btn-teal btn-sm" data-bs-toggle="modal" data-bs-target="#addPatientModal">
+            <i class="bi bi-person-plus me-1"></i> Add Patient Now
+          </button>
+        </div>
+
+        <!-- Responsive Table -->
+        <div class="table-responsive">
+          <table class="table table-custom align-middle">
+            <thead>
+              <tr>
+                <th style="width: 100px;">Patient ID</th>
+                <th>Name</th>
+                <th>Gender</th>
+                <th>DOB</th>
+                <th>Mobile</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th class="text-end" style="width: 170px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="patients-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ===================================================================
+     ADD PATIENT MODAL
+=================================================================== -->
+<div class="modal fade" id="addPatientModal" tabindex="-1" aria-labelledby="addPatientModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-light">
+        <h5 class="modal-title fw-bold" id="addPatientModalLabel">
+          <i class="bi bi-person-plus text-primary me-2"></i>Register New Patient
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="add-patient-form">
+        <div class="modal-body p-4">
+          <div id="add-patient-error" class="alert alert-danger py-2 small d-none" role="alert"></div>
+
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <label for="patient-fullname" class="form-label">Full Name <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="patient-fullname" placeholder="e.g. John Doe" required>
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label for="patient-gender" class="form-label">Gender <span class="text-danger">*</span></label>
+              <select class="form-select" id="patient-gender" required>
+                <option value="" disabled selected>Select</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label for="patient-bloodgroup" class="form-label">Blood Group <span class="text-danger">*</span></label>
+              <select class="form-select" id="patient-bloodgroup" required>
+                <option value="" disabled selected>Select</option>
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-6">
+              <label for="patient-dob" class="form-label">Date of Birth <span class="text-danger">*</span></label>
+              <input type="date" class="form-control" id="patient-dob" required>
+              <small class="text-muted" style="font-size: 0.75rem;">Must be a date in the past.</small>
+            </div>
+
+            <div class="col-12 col-md-6">
+              <label for="patient-mobile" class="form-label">Mobile Number <span class="text-danger">*</span></label>
+              <input type="tel" class="form-control" id="patient-mobile" placeholder="10-digit mobile number" required>
+            </div>
+
+            <div class="col-12 col-md-6">
+              <label for="patient-email" class="form-label">Email Address <span class="text-danger">*</span></label>
+              <input type="email" class="form-control" id="patient-email" placeholder="patient@example.com" required>
+            </div>
+
+            <div class="col-12 col-md-6">
+              <label for="patient-emergency" class="form-label">Emergency Contact <span class="text-danger">*</span></label>
+              <input type="tel" class="form-control" id="patient-emergency" placeholder="Emergency phone number" required>
+            </div>
+
+            <div class="col-12">
+              <label for="patient-address" class="form-label">Residential Address <span class="text-danger">*</span></label>
+              <textarea class="form-control" id="patient-address" rows="2" placeholder="Street, City, State..." required></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-teal px-4" id="add-patient-submit-btn">
+            <i class="bi bi-save me-1"></i> Save Patient
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js?v=3.0"></script>
+<script src="js/common.js?v=3.0"></script>
+<script src="js/auth.js?v=3.0"></script>
+<script src="js/patients.js?v=3.0"></script>
+</body>
+</html>

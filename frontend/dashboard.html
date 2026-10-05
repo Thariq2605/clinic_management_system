@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>MEDICARE - Receptionist Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/style.css?v=3.0">
+</head>
+<body>
+
+<div id="app-wrapper">
+  <!-- Mobile Backdrop -->
+  <div id="sidebar-backdrop"></div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <img src="assets/logo-white.svg" alt="MEDICARE" height="38" width="182" style="height: 38px; width: auto; max-width: 100%; display: block;">
+    </div>
+
+    <ul class="nav-list">
+      <li class="nav-item">
+        <a href="dashboard.html" class="nav-link active">
+          <i class="bi bi-speedometer2"></i>
+          <span>Dashboard</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="patients.html" class="nav-link">
+          <i class="bi bi-people"></i>
+          <span>Patients</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="appointments.html" class="nav-link">
+          <i class="bi bi-calendar2-check"></i>
+          <span>Appointments</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="billing.html" class="nav-link">
+          <i class="bi bi-credit-card-2-front"></i>
+          <span>Billing</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="doctors.html" class="nav-link">
+          <i class="bi bi-person-badge"></i>
+          <span>Doctors</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <a href="#" class="nav-link text-danger p-2 btn-logout-trigger">
+        <i class="bi bi-box-arrow-right"></i>
+        <span>Logout</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Content Wrapper -->
+  <div id="content-wrapper">
+    <!-- Top Navbar -->
+    <header class="top-navbar">
+      <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-light d-lg-none border-0 p-1" id="sidebar-toggle-btn" aria-label="Toggle Navigation">
+          <i class="bi bi-list fs-4"></i>
+        </button>
+        <div>
+          <h1 class="page-title h4 mb-0" id="dashboard-welcome-heading">Welcome, Receptionist</h1>
+          <small class="text-muted" id="dashboard-today-display">Loading date...</small>
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center gap-3">
+        <div class="user-badge">
+          <div class="user-avatar" id="navbar-user-avatar">R</div>
+          <div class="d-none d-sm-block text-end">
+            <div class="fw-semibold text-dark small" id="navbar-user-name">Receptionist</div>
+            <small class="text-muted" style="font-size: 0.75rem;">Reception Desk</small>
+          </div>
+        </div>
+        <button class="btn btn-outline-danger btn-sm rounded-pill px-3 btn-logout-trigger" title="Sign Out">
+          <i class="bi bi-box-arrow-right me-1"></i> Logout
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Quick Action Buttons -->
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+          <h2 class="h5 fw-bold text-dark mb-1">Today's Schedule & Reception Metrics</h2>
+          <p class="text-muted small mb-0">Overview of current day clinical appointments and check-ins</p>
+        </div>
+        <div class="d-flex gap-2">
+          <a href="patients.html?action=new" class="btn btn-teal">
+            <i class="bi bi-person-plus me-1"></i> Add Patient
+          </a>
+          <a href="appointments.html?action=new" class="btn btn-primary">
+            <i class="bi bi-calendar-plus me-1"></i> Book Appointment
+          </a>
+          <button class="btn btn-light border" id="refresh-dashboard-btn" title="Refresh">
+            <i class="bi bi-arrow-clockwise"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- 4 Dashboard Metric Cards -->
+      <div class="row g-3 mb-4">
+        <!-- 1. Today's Appointments -->
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card-custom card-stat">
+            <div class="icon-box blue">
+              <i class="bi bi-calendar-day"></i>
+            </div>
+            <div>
+              <div class="stat-value" id="stat-today-appointments">-</div>
+              <div class="stat-label">Today's Appointments</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Scheduled Appointments -->
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card-custom card-stat">
+            <div class="icon-box amber">
+              <i class="bi bi-clock-history"></i>
+            </div>
+            <div>
+              <div class="stat-value text-warning" id="stat-scheduled-appointments">-</div>
+              <div class="stat-label">Scheduled Appointments</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Completed Appointments -->
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card-custom card-stat">
+            <div class="icon-box green">
+              <i class="bi bi-check2-all"></i>
+            </div>
+            <div>
+              <div class="stat-value text-success" id="stat-completed-appointments">-</div>
+              <div class="stat-label">Completed Appointments</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Paid Consultations -->
+        <div class="col-12 col-sm-6 col-xl-3">
+          <div class="card-custom card-stat">
+            <div class="icon-box teal">
+              <i class="bi bi-cash-stack"></i>
+            </div>
+            <div>
+              <div class="stat-value text-teal" id="stat-paid-consultations">-</div>
+              <div class="stat-label">Paid Consultations</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Today's Appointments Table Section -->
+      <div class="card-custom p-3 p-md-4">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h3 class="h6 fw-bold mb-0">Today's Appointments Queue</h3>
+          <a href="appointments.html" class="btn btn-sm btn-link text-decoration-none">
+            All Appointments <i class="bi bi-arrow-right"></i>
+          </a>
+        </div>
+
+        <!-- Table Loading Spinner -->
+        <div id="dashboard-table-spinner" class="text-center py-4 d-none">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading appointments...</span>
+          </div>
+          <div class="text-muted small mt-2">Fetching today's schedule...</div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="today-empty-state" class="empty-state d-none">
+          <i class="bi bi-calendar-x"></i>
+          <h4 class="h6 text-muted">No appointments scheduled for today</h4>
+          <p class="small text-muted mb-3">Use the booking button below to schedule an appointment for today.</p>
+          <a href="appointments.html?action=new" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i> Book Appointment
+          </a>
+        </div>
+
+        <!-- Responsive Appointments Table -->
+        <div class="table-responsive">
+          <table class="table table-custom align-middle">
+            <thead>
+              <tr>
+                <th style="width: 80px;">Token</th>
+                <th>Patient</th>
+                <th>Doctor</th>
+                <th>Department</th>
+                <th>Time</th>
+                <th>Status</th>
+                <th>Payment Status</th>
+                <th class="text-end">Action</th>
+              </tr>
+            </thead>
+            <tbody id="today-appointments-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js?v=3.0"></script>
+<script src="js/common.js?v=3.0"></script>
+<script src="js/auth.js?v=3.0"></script>
+<script src="js/dashboard.js?v=3.0"></script>
+</body>
+</html>

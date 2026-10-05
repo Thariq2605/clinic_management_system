@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>MEDICARE - Billing & Payments</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="css/style.css?v=3.0">
+</head>
+<body>
+
+<div id="app-wrapper">
+  <!-- Mobile Backdrop -->
+  <div id="sidebar-backdrop"></div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-brand">
+      <img src="assets/logo-white.svg" alt="MEDICARE" height="38" width="182" style="height: 38px; width: auto; max-width: 100%; display: block;">
+    </div>
+
+    <ul class="nav-list">
+      <li class="nav-item">
+        <a href="dashboard.html" class="nav-link">
+          <i class="bi bi-speedometer2"></i>
+          <span>Dashboard</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="patients.html" class="nav-link">
+          <i class="bi bi-people"></i>
+          <span>Patients</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="appointments.html" class="nav-link">
+          <i class="bi bi-calendar2-check"></i>
+          <span>Appointments</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="billing.html" class="nav-link active">
+          <i class="bi bi-credit-card-2-front"></i>
+          <span>Billing</span>
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="doctors.html" class="nav-link">
+          <i class="bi bi-person-badge"></i>
+          <span>Doctors</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <a href="#" class="nav-link text-danger p-2 btn-logout-trigger">
+        <i class="bi bi-box-arrow-right"></i>
+        <span>Logout</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <div id="content-wrapper">
+    <!-- Top Navbar -->
+    <header class="top-navbar">
+      <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-light d-lg-none border-0 p-1" id="sidebar-toggle-btn" aria-label="Toggle Navigation">
+          <i class="bi bi-list fs-4"></i>
+        </button>
+        <div>
+          <h1 class="page-title h4 mb-0">Billing & Payments</h1>
+          <small class="text-muted">Manage consultation payments and financial records</small>
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center gap-3">
+        <div class="user-badge">
+          <div class="user-avatar" id="navbar-user-avatar">R</div>
+          <div class="d-none d-sm-block text-end">
+            <div class="fw-semibold text-dark small" id="navbar-user-name">Receptionist</div>
+            <small class="text-muted" style="font-size: 0.75rem;">Reception Desk</small>
+          </div>
+        </div>
+        <button class="btn btn-outline-danger btn-sm rounded-pill px-3 btn-logout-trigger" title="Sign Out">
+          <i class="bi bi-box-arrow-right me-1"></i> Logout
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Toolbar Filter Card -->
+      <div class="card-custom p-3 p-md-4 mb-4">
+        <div class="row g-3 align-items-center">
+          <div class="col-12 col-md-5">
+            <div class="input-group">
+              <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+              <input
+                type="text"
+                class="form-control"
+                id="billing-search-input"
+                placeholder="Search by Patient, Doctor, Appointment ID..."
+              >
+            </div>
+          </div>
+          <div class="col-12 col-md-4">
+            <div class="d-flex align-items-center gap-2">
+              <label for="billing-status-filter" class="form-label mb-0 text-nowrap small fw-medium">Status Filter:</label>
+              <select class="form-select" id="billing-status-filter">
+                <option value="all">All Payment Statuses</option>
+                <option value="pending">Pending / Unpaid</option>
+                <option value="partial">Partial</option>
+                <option value="paid">Fully Paid</option>
+              </select>
+            </div>
+          </div>
+          <div class="col-12 col-md-3 text-md-end">
+            <button class="btn btn-outline-secondary" onclick="loadBillingRecords()">
+              <i class="bi bi-arrow-clockwise me-1"></i> Refresh Table
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Billing Overview Table Card -->
+      <div class="card-custom p-3 p-md-4">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h2 class="h6 fw-bold mb-0">Consultation Bills & Payments Queue</h2>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="billing-loading-spinner" class="text-center py-5 d-none">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading billing...</span>
+          </div>
+          <div class="text-muted small mt-2">Loading billing records...</div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="billing-empty-state" class="empty-state d-none">
+          <i class="bi bi-receipt"></i>
+          <h3 class="h6 text-muted">No billing records found</h3>
+          <p class="small text-muted mb-0">Appointments will appear here for consultation fee collection.</p>
+        </div>
+
+        <!-- Table -->
+        <div class="table-responsive">
+          <table class="table table-custom align-middle">
+            <thead>
+              <tr>
+                <th style="width: 100px;">Appt ID</th>
+                <th>Patient</th>
+                <th>Doctor</th>
+                <th>Consultation Fee</th>
+                <th>Payment Status</th>
+                <th>Paid Amount</th>
+                <th>Balance</th>
+                <th class="text-end" style="width: 190px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="billing-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ===================================================================
+     RECORD PAYMENT MODAL
+=================================================================== -->
+<div class="modal fade" id="billingPaymentModal" tabindex="-1" aria-labelledby="billingPaymentModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-light">
+        <h5 class="modal-title fw-bold" id="billingPaymentModalLabel">
+          <i class="bi bi-credit-card text-success me-2"></i>Record Consultation Payment
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="billing-payment-form">
+        <div class="modal-body p-4">
+          <div id="billing-pay-error" class="alert alert-danger py-2 small d-none" role="alert"></div>
+
+          <!-- Bill Summary Panel -->
+          <div class="bg-light p-3 rounded-3 mb-3 border">
+            <div class="d-flex justify-content-between mb-2">
+              <span class="text-muted small">Appointment ID</span>
+              <span class="fw-bold" id="billing-modal-apt-id">#--</span>
+            </div>
+            <div class="row g-2 text-center pt-2 border-top">
+              <div class="col-4 border-end">
+                <small class="text-muted d-block">Fee</small>
+                <span class="fw-bold text-dark" id="billing-modal-total">₹0.00</span>
+              </div>
+              <div class="col-4 border-end">
+                <small class="text-muted d-block">Paid</small>
+                <span class="fw-bold text-success" id="billing-modal-paid">₹0.00</span>
+              </div>
+              <div class="col-4">
+                <small class="text-muted d-block">Balance</small>
+                <span class="fw-bold text-danger" id="billing-modal-balance">₹0.00</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="billing-pay-amount" class="form-label">Payment Amount (₹) <span class="text-danger">*</span></label>
+            <input type="number" step="0.01" min="0.01" class="form-control" id="billing-pay-amount" required>
+            <small class="text-muted" style="font-size: 0.75rem;">Cannot exceed current outstanding balance.</small>
+          </div>
+
+          <div class="mb-3">
+            <label for="billing-pay-method" class="form-label">Payment Method <span class="text-danger">*</span></label>
+            <select class="form-select" id="billing-pay-method" required>
+              <option value="cash" selected>Cash</option>
+              <option value="card">Credit / Debit Card</option>
+              <option value="upi">UPI / Online Transfer</option>
+              <option value="bank_transfer">Bank Transfer</option>
+              <option value="cheque">Cheque</option>
+            </select>
+          </div>
+
+          <div class="mb-2">
+            <label for="billing-pay-reference" class="form-label">Transaction Reference (Optional)</label>
+            <input type="text" class="form-control" id="billing-pay-reference" placeholder="e.g. UPI Ref # or Card Slip #">
+          </div>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success px-4" id="billing-pay-submit-btn">
+            <i class="bi bi-cash-stack me-1"></i> Record Payment
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================
+     VIEW PAYMENT HISTORY MODAL
+=================================================================== -->
+<div class="modal fade" id="billingHistoryModal" tabindex="-1" aria-labelledby="billingHistoryModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-light">
+        <h5 class="modal-title fw-bold" id="billingHistoryModalLabel">
+          <i class="bi bi-clock-history text-primary me-2"></i>Payment History for Appointment <span id="modal-history-apt-id">#--</span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div id="modal-history-empty" class="empty-state py-4 d-none">
+          <i class="bi bi-cash-coin" style="font-size: 2.25rem;"></i>
+          <h6 class="text-muted mt-2">No payment transactions recorded for this appointment.</h6>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-custom align-middle">
+            <thead>
+              <tr>
+                <th>Payment ID</th>
+                <th>Bill ID</th>
+                <th>Amount</th>
+                <th>Payment Method</th>
+                <th>Payment Date</th>
+                <th>Transaction Reference</th>
+                <th>Active Status</th>
+              </tr>
+            </thead>
+            <tbody id="modal-history-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer bg-light">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/api.js?v=3.0"></script>
+<script src="js/common.js?v=3.0"></script>
+<script src="js/auth.js?v=3.0"></script>
+<script src="js/billing.js?v=3.0"></script>
+</body>
+</html>
