@@ -733,3 +733,27 @@ class Payment(models.Model):
         return f"Payment {self.payment_id}"
 
 
+# =========================================================
+# CLINIC SETTING
+# =========================================================
+
+class ClinicSetting(models.Model):
+    setting_id = models.AutoField(primary_key=True)
+    clinic_name = models.CharField(max_length=150, default="ClinixOne Care Operations")
+    clinic_email = models.CharField(max_length=100, default="support@clinixone.com")
+    clinic_phone = models.CharField(max_length=20, default="+1 (800) 555-0199")
+    clinic_address = models.CharField(max_length=255, default="100 Medical Center Blvd, Suite 400")
+    timezone = models.CharField(max_length=50, default="UTC")
+    currency = models.CharField(max_length=10, default="USD")
+    appointment_slot_duration = models.IntegerField(default=15)
+    enable_notifications = models.BooleanField(default=True)
+    enable_email_alerts = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "clinic_setting"
+
+    def __str__(self):
+        return self.clinic_name
+
+

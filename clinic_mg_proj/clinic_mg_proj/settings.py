@@ -29,7 +29,7 @@ SECRET_KEY = 'django-insecure-h85@unnm-^0n1y&=6)3d*jw!a69qwhpvf8mky2l^!sii!7eicl
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'testserver', '*']
 
 
 # Application definition
@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework.authtoken',
     'corsheaders',
     'core',
     'adminapp',
@@ -62,10 +63,16 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# CORS Configuration — required for receptionist frontend (http://127.0.0.1:5500 / localhost:5500)
+# CORS Configuration — required for receptionist and admin frontends
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5500",
     "http://localhost:5500",
+    "http://127.0.0.1:5501",
+    "http://localhost:5501",
+    "http://127.0.0.1:5502",
+    "http://localhost:5502",
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -73,6 +80,12 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:5500",
     "http://localhost:5500",
+    "http://127.0.0.1:5501",
+    "http://localhost:5501",
+    "http://127.0.0.1:5502",
+    "http://localhost:5502",
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
 ]
 
 ROOT_URLCONF = 'clinic_mg_proj.urls'
@@ -93,6 +106,8 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'clinic_mg_proj.wsgi.application'
+
+AUTH_USER_MODEL = "core.User"
 
 
 # Database
@@ -155,11 +170,11 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
         'doctorapp.authentication.CustomJWTAuthentication',
-    ),
+    ],
 }
 
 SIMPLE_JWT = {

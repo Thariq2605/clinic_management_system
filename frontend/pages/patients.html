@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patients | ClinixOne Care Operations</title>
+    <!-- ClinixOne custom CSS -->
+    <link rel="stylesheet" href="../css/admin.css">
+    <style>
+        .page-card {
+            background: #ffffff;
+            border: 1px solid #e1e8f0;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(20, 55, 90, 0.06);
+            padding: 18px;
+        }
+
+        .patients-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            gap: 12px;
+        }
+
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .patients-search {
+            width: 250px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #e1e8f0;
+            border-radius: 6px;
+            padding: 0 10px;
+            background: #ffffff;
+        }
+
+        .patients-search input {
+            width: 100%;
+            border: none;
+            outline: none;
+            font-size: 9px;
+            color: var(--text);
+        }
+
+        .patients-filter {
+            height: 34px;
+            padding: 0 10px;
+            border: 1px solid #e1e8f0;
+            border-radius: 6px;
+            background: white;
+            color: #526276;
+            font-size: 9px;
+            outline: none;
+        }
+
+        .add-patient-btn {
+            height: 34px;
+            padding: 0 14px;
+            background: #1769e8;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 9px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .add-patient-btn:hover {
+            background: #0f5fd6;
+        }
+
+        .user-avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .user-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #17263a;
+        }
+
+        @media (max-width: 800px) {
+            .patients-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .patients-search {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="admin-layout">
+
+    <!-- ================= SIDEBAR ================= -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon">+</div>
+            <div class="logo-text">
+                <h2>CLINIC SYSTEM</h2>
+                <span>HEALTHCARE MANAGEMENT</span>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="admin_dashboard.html" class="nav-item">
+                <span class="nav-icon">▦</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="users.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Users</span>
+            </a>
+            <a href="doctors.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Doctors</span>
+            </a>
+            <a href="receptionists.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Receptionists</span>
+            </a>
+            <a href="patients.html" class="nav-item active">
+                <span class="nav-icon">♡</span>
+                <span>Patients</span>
+            </a>
+            <a href="departments.html" class="nav-item">
+                <span class="nav-icon">▤</span>
+                <span>Departments</span>
+            </a>
+            <a href="specializations.html" class="nav-item">
+                <span class="nav-icon">✦</span>
+                <span>Specializations</span>
+            </a>
+            <a href="medicines.html" class="nav-item">
+                <span class="nav-icon">▱</span>
+                <span>Medicines</span>
+            </a>
+            <a href="lab_tests.html" class="nav-item">
+                <span class="nav-icon">⚗</span>
+                <span>Lab Tests</span>
+            </a>
+            <a href="appointments.html" class="nav-item">
+                <span class="nav-icon">▣</span>
+                <span>Appointments</span>
+            </a>
+            <a href="billing.html" class="nav-item">
+                <span class="nav-icon">▤</span>
+                <span>Billing</span>
+            </a>
+            <a href="payments.html" class="nav-item">
+                <span class="nav-icon">▣</span>
+                <span>Payments</span>
+            </a>
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">▥</span>
+                <span>Reports</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙</span>
+                <span>Settings</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <span>24/7 clinic support · Contact team →</span>
+        </div>
+    </aside>
+
+    <!-- ================= MAIN CONTENT ================= -->
+    <main class="main-content">
+
+        <!-- Top Header -->
+        <header class="top-header">
+            <div class="breadcrumb">
+                <span>Clinic management</span>
+                <span>/</span>
+                <strong>Patients</strong>
+            </div>
+
+            <div class="header-right">
+                <div class="search-box">
+                    <span>⌕</span>
+                    <input type="text" placeholder="Search patients, doctors, records...">
+                    <small>⌘ K</small>
+                </div>
+
+                <button class="notification-btn" title="Notifications">♧</button>
+
+                <div class="profile">
+                    <div class="profile-avatar">AD</div>
+                    <div class="profile-name">Administrator</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <section class="dashboard-content">
+
+            <div class="page-heading">
+                <div>
+                    <h1>Patient Registry</h1>
+                    <p>Access patient demographics, medical history, appointment logs, and billing profiles.</p>
+                </div>
+            </div>
+
+            <div class="page-card">
+                <div class="patients-toolbar">
+                    <div class="toolbar-left">
+                        <div class="patients-search">
+                            <span>⌕</span>
+                            <input type="text" id="patientSearch" placeholder="Search by patient name, phone, email...">
+                        </div>
+
+                        <select id="genderFilter" class="patients-filter">
+                            <option value="">All genders</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+
+                        <select id="bloodFilter" class="patients-filter">
+                            <option value="">All blood groups</option>
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                        </select>
+
+                        <select id="statusFilter" class="patients-filter">
+                            <option value="">All statuses</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+
+                    <button type="button" class="add-patient-btn" id="addPatientBtn">
+                        + Register Patient
+                    </button>
+                </div>
+
+                <div class="table-wrapper"><table>
+                        <thead>
+                            <tr>
+                                <th>PATIENT ID</th>
+                                <th>NAME</th>
+                                <th>AGE</th>
+                                <th>GENDER</th>
+                                <th>MOBILE</th>
+                                <th>BLOOD GROUP</th>
+                                <th>STATUS</th>
+                                <th>ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="patientsTableBody">
+                            <tr>
+                                <td colspan="8" class="table-loading">
+                                    <span class="spinner"></span> Loading patient registry...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 8px; color: var(--text-light);">
+                    <div id="patientCountDisplay">Showing patients...</div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<!-- ================= REGISTER / EDIT PATIENT MODAL ================= -->
+<div class="modal-backdrop" id="patientModal">
+    <div class="modal-box large">
+        <div class="modal-header">
+            <h3 id="patientModalTitle">Register New Patient</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal('patientModal')">&times;</button>
+        </div>
+        <form id="patientForm">
+            <div class="modal-body">
+                <div id="patientFormError" class="login-alert" style="display: none; margin-bottom: 12px;"></div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="patFullName">Full Name <span class="required">*</span></label>
+                        <input type="text" id="patFullName" placeholder="e.g. Maya Chen" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="patDob">Date of Birth <span class="required">*</span></label>
+                        <input type="date" id="patDob" required>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="patGender">Gender <span class="required">*</span></label>
+                        <select id="patGender" required>
+                            <option value="Female">Female</option>
+                            <option value="Male">Male</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="patBloodGroup">Blood Group</label>
+                        <select id="patBloodGroup">
+                            <option value="">Select blood group...</option>
+                            <option value="A+">A+</option>
+                            <option value="A-">A-</option>
+                            <option value="B+">B+</option>
+                            <option value="B-">B-</option>
+                            <option value="O+">O+</option>
+                            <option value="O-">O-</option>
+                            <option value="AB+">AB+</option>
+                            <option value="AB-">AB-</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="patMobile">Mobile Number <span class="required">*</span></label>
+                        <input type="text" id="patMobile" placeholder="e.g. +1 555-0143" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="patEmail">Email Address</label>
+                        <input type="email" id="patEmail" placeholder="e.g. maya@example.com">
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="patEmergencyContact">Emergency Contact Number</label>
+                        <input type="text" id="patEmergencyContact" placeholder="e.g. +1 555-0199">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="patAddress">Residential Address</label>
+                        <input type="text" id="patAddress" placeholder="e.g. 742 Evergreen Terrace">
+                    </div>
+                </div>
+
+                <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 6px;">
+                    <input type="checkbox" id="patActive" checked style="cursor: pointer;">
+                    <label for="patActive" style="margin-bottom: 0; cursor: pointer;">Active patient profile</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="secondary-btn" onclick="closeModal('patientModal')">Cancel</button>
+                <button type="submit" class="primary-btn" id="savePatientBtn">Save Patient</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================= PATIENT PROFILE VIEW MODAL ================= -->
+<div class="modal-backdrop" id="viewProfileModal">
+    <div class="modal-box large">
+        <div class="modal-header">
+            <h3>Comprehensive Patient Medical Profile</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal('viewProfileModal')">&times;</button>
+        </div>
+        <div class="modal-body" id="viewProfileBody">
+            <!-- Populated via patients.js -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="secondary-btn" onclick="closeModal('viewProfileModal')">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/admin.js"></script>
+<script src="../js/patients.js"></script>
+</body>
+</html>
