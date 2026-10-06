@@ -47,6 +47,12 @@
         </a>
       </li>
       <li class="nav-item">
+        <a href="token-queue.html" class="nav-link">
+          <i class="bi bi-people-fill"></i>
+          <span>Token Queue</span>
+        </a>
+      </li>
+      <li class="nav-item">
         <a href="billing.html" class="nav-link">
           <i class="bi bi-credit-card-2-front"></i>
           <span>Billing</span>
@@ -143,7 +149,16 @@
               </select>
             </div>
 
-            <div class="col-12 col-md-9">
+            <div class="col-12 col-sm-6 col-md-3">
+              <label for="filter-type" class="form-label small">Appointment Type</label>
+              <select class="form-select form-select-sm" id="filter-type">
+                <option value="">All Types</option>
+                <option value="pre_booking">Pre-Booking</option>
+                <option value="walk_in">Walk-In</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-6">
               <label for="filter-search" class="form-label small">Search Keyword</label>
               <div class="input-group input-group-sm">
                 <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
@@ -195,6 +210,7 @@
               <tr>
                 <th style="width: 70px;">Appt ID</th>
                 <th style="width: 70px;">Token</th>
+                <th style="width: 105px;">Type</th>
                 <th>Patient</th>
                 <th>Doctor</th>
                 <th>Department</th>
@@ -232,6 +248,28 @@
         <div class="modal-body p-4">
           <div id="book-appointment-error" class="alert alert-danger py-2 small d-none" role="alert"></div>
 
+          <!-- Appointment Type Selection -->
+          <div class="mb-3 p-3 rounded" style="background-color: #f8fafc; border: 1px solid #e2e8f0;">
+            <label class="form-label d-block fw-semibold text-dark mb-2">Appointment Type <span class="text-danger">*</span></label>
+            <div class="d-flex flex-wrap gap-4">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="book-appointment-type" id="type-pre-booking" value="pre_booking" checked>
+                <label class="form-check-label fw-medium text-dark" for="type-pre-booking">
+                  <i class="bi bi-calendar2-event text-primary me-1"></i> Pre-Booking (Scheduled)
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="book-appointment-type" id="type-walk-in" value="walk_in">
+                <label class="form-check-label fw-medium text-dark" for="type-walk-in">
+                  <i class="bi bi-person-walking text-teal me-1"></i> Walk-In (Today)
+                </label>
+              </div>
+            </div>
+            <small id="book-type-hint" class="text-muted d-block mt-2" style="font-size: 0.75rem;">
+              <i class="bi bi-info-circle me-1"></i>Pre-booking allows future dates. Tokens enter the queue on the appointment date.
+            </small>
+          </div>
+
           <!-- Patient Selection Field -->
           <div class="mb-3 position-relative">
             <label class="form-label">Patient <span class="text-danger">*</span></label>
@@ -266,7 +304,10 @@
             <div class="col-12 col-md-6">
               <div class="d-flex justify-content-between align-items-center mb-1">
                 <label for="book-doctor" class="form-label mb-0">Doctor <span class="text-danger">*</span></label>
-                <span id="book-consultation-fee-badge" class="badge bg-success-subtle text-success d-none"></span>
+                <div>
+                  <span id="book-doctor-hours-badge" class="badge bg-info-subtle text-info d-none me-1"></span>
+                  <span id="book-consultation-fee-badge" class="badge bg-success-subtle text-success d-none"></span>
+                </div>
               </div>
               <select class="form-select" id="book-doctor" required disabled>
                 <option value="" disabled selected>Select department first</option>
@@ -283,6 +324,7 @@
             <div class="col-12 col-md-6">
               <label for="book-time" class="form-label">Appointment Time <span class="text-danger">*</span></label>
               <input type="time" class="form-control" id="book-time" required>
+              <small id="book-time-hint" class="text-muted d-block mt-1" style="font-size: 0.75rem;"></small>
             </div>
 
             <!-- Consultation Reason -->

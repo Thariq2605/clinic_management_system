@@ -47,6 +47,12 @@
         </a>
       </li>
       <li class="nav-item">
+        <a href="token-queue.html" class="nav-link">
+          <i class="bi bi-people-fill"></i>
+          <span>Token Queue</span>
+        </a>
+      </li>
+      <li class="nav-item">
         <a href="billing.html" class="nav-link">
           <i class="bi bi-credit-card-2-front"></i>
           <span>Billing</span>
@@ -197,7 +203,7 @@
           <div class="row g-3">
             <div class="col-12 col-md-6">
               <label for="patient-fullname" class="form-label">Full Name <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="patient-fullname" placeholder="e.g. John Doe" required>
+              <input type="text" class="form-control" id="patient-fullname" placeholder="e.g. John Doe" maxlength="100" required>
             </div>
 
             <div class="col-12 col-md-3">
@@ -228,27 +234,27 @@
             <div class="col-12 col-md-6">
               <label for="patient-dob" class="form-label">Date of Birth <span class="text-danger">*</span></label>
               <input type="date" class="form-control" id="patient-dob" required>
-              <small class="text-muted" style="font-size: 0.75rem;">Must be a date in the past.</small>
+              <small class="text-muted" style="font-size: 0.75rem;">Date of birth cannot be in the future.</small>
             </div>
 
             <div class="col-12 col-md-6">
               <label for="patient-mobile" class="form-label">Mobile Number <span class="text-danger">*</span></label>
-              <input type="tel" class="form-control" id="patient-mobile" placeholder="10-digit mobile number" required>
+              <input type="tel" class="form-control" id="patient-mobile" placeholder="10-digit mobile number" maxlength="10" inputmode="numeric" pattern="[0-9]{10}" required>
             </div>
 
             <div class="col-12 col-md-6">
               <label for="patient-email" class="form-label">Email Address <span class="text-danger">*</span></label>
-              <input type="email" class="form-control" id="patient-email" placeholder="patient@example.com" required>
+              <input type="email" class="form-control" id="patient-email" placeholder="patient@example.com" maxlength="100" required>
             </div>
 
             <div class="col-12 col-md-6">
               <label for="patient-emergency" class="form-label">Emergency Contact <span class="text-danger">*</span></label>
-              <input type="tel" class="form-control" id="patient-emergency" placeholder="Emergency phone number" required>
+              <input type="tel" class="form-control" id="patient-emergency" placeholder="10-digit emergency contact" maxlength="10" inputmode="numeric" pattern="[0-9]{10}" required>
             </div>
 
             <div class="col-12">
               <label for="patient-address" class="form-label">Residential Address <span class="text-danger">*</span></label>
-              <textarea class="form-control" id="patient-address" rows="2" placeholder="Street, City, State..." required></textarea>
+              <textarea class="form-control" id="patient-address" rows="2" maxlength="255" placeholder="Street, City, State..." required></textarea>
             </div>
           </div>
         </div>

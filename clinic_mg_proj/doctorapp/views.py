@@ -35,7 +35,37 @@ from .serializer import (
 )
 
 from doctorapp.permission import IsDoctor
-from django.db.models import Q
+from decimal import Decimal
+from django.db.models import Q, Sum
+
+
+def is_appointment_payment_completed(appointment):
+    """
+    Authoritative payment validation rule:
+    An appointment is available to the Doctor for consultation / patient details ONLY IF:
+    1. appointment.payment_status == 'Paid'
+    2. An active bill is linked to the appointment
+    3. bill.payment_status == 'paid'
+    4. Outstanding balance is 0 (bill.total_amount - paid <= 0)
+    """
+    if not appointment:
+        return False, "Appointment not found."
+
+    if str(appointment.payment_status).strip().capitalize() != "Paid":
+        return False, "Payment is pending. Doctor access will be available after payment is completed."
+
+    bill = appointment.bill_set.filter(is_active=True).first()
+    if not bill:
+        return False, "Active bill was not found. Please contact Receptionist."
+
+    if str(bill.payment_status).strip().lower() != "paid":
+        return False, "Payment is pending. Doctor access will be available after payment is completed."
+
+    paid = bill.payment_set.filter(is_active=True).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+    if bill.total_amount - paid > Decimal("0.00"):
+        return False, "Payment is pending. Doctor access will be available after payment is completed."
+
+    return True, None
 
 
 def get_authenticated_doctor(request, doctor_id):
@@ -313,24 +343,13 @@ def appointment_patient_details(request, doctor_id, appointment_id):
             status=404
         )
 
-    # Find the active bill for this appointment
-    bill = appointment.bill_set.filter(
-        is_active=True
-    ).first()
-
-    if not bill:
+    # Check payment status
+    is_paid, error_msg = is_appointment_payment_completed(appointment)
+    if not is_paid:
         return Response(
             {
-                "error": "Payment not completed. Please contact the Receptionist."
-            },
-            status=403
-        )
-
-    # Check payment status from Bill
-    if bill.payment_status != "paid":
-        return Response(
-            {
-                "error": "Payment is not completed. Please contact the Receptionist."
+                "error": "Payment is not completed. Please contact the Receptionist.",
+                "detail": "Payment is pending. Doctor access will be available after payment is completed."
             },
             status=403
         )
@@ -344,7 +363,7 @@ def appointment_patient_details(request, doctor_id, appointment_id):
         {
             "appointment_id": appointment.appointment_id,
             "token_number": appointment.token_number,
-            "payment_status": bill.payment_status,
+            "payment_status": appointment.payment_status,
             "patient": serializer.data
         },
         status=200
@@ -383,25 +402,13 @@ def create_consultation(request, doctor_id, appointment_id):
             status=404
         )
 
-    # Find the bill associated with this appointment
-    bill = appointment.bill_set.filter(
-        is_active=True
-    ).first()
-
-    # No bill means payment is not completed
-    if not bill:
+    # Check payment status
+    is_paid, error_msg = is_appointment_payment_completed(appointment)
+    if not is_paid:
         return Response(
             {
-                "error": "Payment not completed. Please contact the Receptionist."
-            },
-            status=403
-        )
-
-    # Payment must be fully paid
-    if bill.payment_status != "paid":
-        return Response(
-            {
-                "error": "Payment is not completed. Please contact the Receptionist."
+                "error": "Payment is not completed. Please contact the Receptionist.",
+                "detail": "Payment is pending. Doctor access will be available after payment is completed."
             },
             status=403
         )
@@ -466,11 +473,12 @@ def create_prescription(request, doctor_id, consultation_id):
 
     # 2. Check payment
     appointment = consultation.appointment
-
-    if appointment.payment_status != "Paid":
+    is_paid, error_msg = is_appointment_payment_completed(appointment)
+    if not is_paid:
         return Response(
             {
-                "error": "Payment is not completed. Please contact the Receptionist."
+                "error": "Payment is not completed. Please contact the Receptionist.",
+                "detail": "Payment is pending. Doctor access will be available after payment is completed."
             },
             status=403
         )
@@ -578,11 +586,12 @@ def create_lab_test_request(request, doctor_id, consultation_id):
 
     # 2. Check payment
     appointment = consultation.appointment
-
-    if appointment.payment_status != "Paid":
+    is_paid, error_msg = is_appointment_payment_completed(appointment)
+    if not is_paid:
         return Response(
             {
-                "error": "Payment is not completed. Please contact the Receptionist."
+                "error": "Payment is not completed. Please contact the Receptionist.",
+                "detail": "Payment is pending. Doctor access will be available after payment is completed."
             },
             status=403
         )
@@ -720,11 +729,12 @@ def create_medical_record(request, doctor_id, consultation_id):
 
     # 2. Check payment
     appointment = consultation.appointment
-
-    if appointment.payment_status != "Paid":
+    is_paid, error_msg = is_appointment_payment_completed(appointment)
+    if not is_paid:
         return Response(
             {
-                "error": "Payment is not completed. Please contact the Receptionist."
+                "error": "Payment is not completed. Please contact the Receptionist.",
+                "detail": "Payment is pending. Doctor access will be available after payment is completed."
             },
             status=403
         )
@@ -829,7 +839,8 @@ def search_patients(request, doctor_id):
             "appointment_date": appointment.appointment_date,
             "appointment_time": appointment.appointment_time,
             "token_number": appointment.token_number,
-            "appointment_status": appointment.status
+            "appointment_status": appointment.status,
+            "payment_status": appointment.payment_status
         })
 
     if not results:

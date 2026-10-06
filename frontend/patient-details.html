@@ -47,6 +47,12 @@
         </a>
       </li>
       <li class="nav-item">
+        <a href="token-queue.html" class="nav-link">
+          <i class="bi bi-people-fill"></i>
+          <span>Token Queue</span>
+        </a>
+      </li>
+      <li class="nav-item">
         <a href="billing.html" class="nav-link">
           <i class="bi bi-credit-card-2-front"></i>
           <span>Billing</span>
@@ -268,8 +274,8 @@
 
           <div class="row g-3">
             <div class="col-12 col-md-6">
-              <label for="edit-patient-fullname" class="form-label">Full Name</label>
-              <input type="text" class="form-control" id="edit-patient-fullname" required>
+              <label for="edit-patient-fullname" class="form-label">Full Name <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="edit-patient-fullname" maxlength="100" required>
             </div>
 
             <div class="col-12 col-md-3">
@@ -301,23 +307,23 @@
             </div>
 
             <div class="col-12 col-md-6">
-              <label for="edit-patient-mobile" class="form-label">Mobile Number</label>
-              <input type="tel" class="form-control" id="edit-patient-mobile" required>
+              <label for="edit-patient-mobile" class="form-label">Mobile Number <span class="text-danger">*</span></label>
+              <input type="tel" class="form-control" id="edit-patient-mobile" placeholder="10-digit mobile number" maxlength="10" inputmode="numeric" pattern="[0-9]{10}" required>
             </div>
 
             <div class="col-12 col-md-6">
               <label for="edit-patient-email" class="form-label">Email Address</label>
-              <input type="email" class="form-control" id="edit-patient-email">
+              <input type="email" class="form-control" id="edit-patient-email" placeholder="patient@example.com" maxlength="100">
             </div>
 
             <div class="col-12 col-md-6">
               <label for="edit-patient-emergency" class="form-label">Emergency Contact</label>
-              <input type="tel" class="form-control" id="edit-patient-emergency">
+              <input type="tel" class="form-control" id="edit-patient-emergency" placeholder="10-digit emergency contact" maxlength="10" inputmode="numeric" pattern="[0-9]{10}">
             </div>
 
             <div class="col-12">
               <label for="edit-patient-address" class="form-label">Residential Address</label>
-              <textarea class="form-control" id="edit-patient-address" rows="2"></textarea>
+              <textarea class="form-control" id="edit-patient-address" rows="2" maxlength="255" placeholder="Street, City, State..."></textarea>
             </div>
           </div>
         </div>

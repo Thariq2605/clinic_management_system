@@ -38,6 +38,21 @@ document.addEventListener("DOMContentLoaded", () => {
     statusToggleBtn.addEventListener("click", handleStatusToggle);
   }
 
+  // Restrict mobile and emergency contact inputs to numbers and 10 digits
+  const editMobileInput = document.getElementById("edit-patient-mobile");
+  if (editMobileInput) {
+    editMobileInput.addEventListener("input", (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+    });
+  }
+
+  const editEmergencyInput = document.getElementById("edit-patient-emergency");
+  if (editEmergencyInput) {
+    editEmergencyInput.addEventListener("input", (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+    });
+  }
+
   // Restrict DOB input maximum date to today
   const editDob = document.getElementById("edit-patient-dob");
   if (editDob) {
@@ -148,12 +163,91 @@ async function handlePatientUpdate(e) {
     address: document.getElementById("edit-patient-address").value.trim(),
   };
 
-  // DOB validation
-  if (payload.dob && new Date(payload.dob) >= new Date()) {
+  // Full name validation
+  const nameRegex = /^[a-zA-Z\s\.\'\-]+$/;
+  if (!payload.full_name || payload.full_name.length < 2 || !nameRegex.test(payload.full_name) || !/[a-zA-Z]/.test(payload.full_name)) {
     if (errorBox) {
-      errorBox.textContent = "Date of birth must be in the past.";
+      errorBox.textContent = "Please enter a valid patient name.";
       errorBox.classList.remove("d-none");
     }
+    document.getElementById("edit-patient-fullname").focus();
+    return;
+  }
+
+  // DOB validation
+  if (payload.dob) {
+    const dobDate = new Date(payload.dob);
+    const now = new Date();
+    now.setHours(23, 59, 59, 999);
+    if (dobDate > now) {
+      if (errorBox) {
+        errorBox.textContent = "Date of birth cannot be in the future.";
+        errorBox.classList.remove("d-none");
+      }
+      document.getElementById("edit-patient-dob").focus();
+      return;
+    }
+  }
+
+  // Gender validation
+  if (payload.gender && !["Male", "Female", "Other"].includes(payload.gender)) {
+    if (errorBox) {
+      errorBox.textContent = "Please select a valid gender.";
+      errorBox.classList.remove("d-none");
+    }
+    document.getElementById("edit-patient-gender").focus();
+    return;
+  }
+
+  // Blood group validation
+  const validBloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+  if (payload.blood_group && !validBloodGroups.includes(payload.blood_group)) {
+    if (errorBox) {
+      errorBox.textContent = "Please select a valid blood group.";
+      errorBox.classList.remove("d-none");
+    }
+    document.getElementById("edit-patient-bloodgroup").focus();
+    return;
+  }
+
+  // Mobile phone: exactly 10 digits
+  if (!/^[0-9]{10}$/.test(payload.mobile_number)) {
+    if (errorBox) {
+      errorBox.textContent = "Phone number must contain exactly 10 digits.";
+      errorBox.classList.remove("d-none");
+    }
+    document.getElementById("edit-patient-mobile").focus();
+    return;
+  }
+
+  // Email validation: if entered, must be valid
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (payload.email && !emailRegex.test(payload.email)) {
+    if (errorBox) {
+      errorBox.textContent = "Please enter a valid email address.";
+      errorBox.classList.remove("d-none");
+    }
+    document.getElementById("edit-patient-email").focus();
+    return;
+  }
+
+  // Emergency contact: if entered, exactly 10 digits
+  if (payload.emergency_contact && !/^[0-9]{10}$/.test(payload.emergency_contact)) {
+    if (errorBox) {
+      errorBox.textContent = "Emergency contact must contain exactly 10 digits.";
+      errorBox.classList.remove("d-none");
+    }
+    document.getElementById("edit-patient-emergency").focus();
+    return;
+  }
+
+  // Address: if entered, cannot be only spaces
+  if (document.getElementById("edit-patient-address").value !== "" && !payload.address) {
+    if (errorBox) {
+      errorBox.textContent = "Please enter a valid residential address.";
+      errorBox.classList.remove("d-none");
+    }
+    document.getElementById("edit-patient-address").focus();
     return;
   }
 

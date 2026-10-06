@@ -47,6 +47,12 @@
         </a>
       </li>
       <li class="nav-item">
+        <a href="token-queue.html" class="nav-link">
+          <i class="bi bi-people-fill"></i>
+          <span>Token Queue</span>
+        </a>
+      </li>
+      <li class="nav-item">
         <a href="billing.html" class="nav-link active">
           <i class="bi bi-credit-card-2-front"></i>
           <span>Billing</span>
@@ -157,14 +163,15 @@
           <table class="table table-custom align-middle">
             <thead>
               <tr>
-                <th style="width: 100px;">Appt ID</th>
+                <th style="width: 120px;">Bill Number</th>
                 <th>Patient</th>
                 <th>Doctor</th>
-                <th>Consultation Fee</th>
-                <th>Payment Status</th>
+                <th>Bill Type</th>
+                <th>Total Amount</th>
                 <th>Paid Amount</th>
                 <th>Balance</th>
-                <th class="text-end" style="width: 190px;">Action</th>
+                <th>Payment Status</th>
+                <th class="text-end" style="min-width: 260px;">Action</th>
               </tr>
             </thead>
             <tbody id="billing-tbody">
@@ -178,69 +185,84 @@
 </div>
 
 <!-- ===================================================================
-     RECORD PAYMENT MODAL
+     RECORD PAYMENT MODAL (MEDICARE Design)
 =================================================================== -->
 <div class="modal fade" id="billingPaymentModal" tabindex="-1" aria-labelledby="billingPaymentModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
+    <div class="modal-content shadow border-0">
       <div class="modal-header bg-light">
-        <h5 class="modal-title fw-bold" id="billingPaymentModalLabel">
-          <i class="bi bi-credit-card text-success me-2"></i>Record Consultation Payment
+        <h5 class="modal-title fw-bold text-dark" id="billingPaymentModalLabel">
+          <i class="bi bi-credit-card-2-front text-primary me-2"></i>Record Payment
         </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <form id="billing-payment-form">
+      <form id="billing-payment-form" novalidate>
         <div class="modal-body p-4">
+          <!-- Client validation / error banner -->
           <div id="billing-pay-error" class="alert alert-danger py-2 small d-none" role="alert"></div>
 
-          <!-- Bill Summary Panel -->
+          <!-- Bill & Patient Metadata -->
           <div class="bg-light p-3 rounded-3 mb-3 border">
-            <div class="d-flex justify-content-between mb-2">
-              <span class="text-muted small">Appointment ID</span>
-              <span class="fw-bold" id="billing-modal-apt-id">#--</span>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="text-muted small">Bill Number</span>
+              <span class="fw-bold text-dark" id="billing-modal-bill-num">BILL-0000</span>
             </div>
-            <div class="row g-2 text-center pt-2 border-top">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="text-muted small">Patient Name</span>
+              <span class="fw-semibold text-dark" id="billing-modal-patient-name">--</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="text-muted small">Bill Type</span>
+              <span class="badge bg-white text-primary border" id="billing-modal-bill-type">Consultation Fee</span>
+            </div>
+            <div class="row g-2 text-center pt-2 mt-1 border-top">
               <div class="col-4 border-end">
-                <small class="text-muted d-block">Fee</small>
+                <small class="text-muted d-block" style="font-size: 0.75rem;">Total Fee</small>
                 <span class="fw-bold text-dark" id="billing-modal-total">₹0.00</span>
               </div>
               <div class="col-4 border-end">
-                <small class="text-muted d-block">Paid</small>
+                <small class="text-muted d-block" style="font-size: 0.75rem;">Paid</small>
                 <span class="fw-bold text-success" id="billing-modal-paid">₹0.00</span>
               </div>
               <div class="col-4">
-                <small class="text-muted d-block">Balance</small>
+                <small class="text-muted d-block" style="font-size: 0.75rem;">Amount Due</small>
                 <span class="fw-bold text-danger" id="billing-modal-balance">₹0.00</span>
               </div>
             </div>
           </div>
 
+          <!-- Payment Amount -->
           <div class="mb-3">
-            <label for="billing-pay-amount" class="form-label">Payment Amount (₹) <span class="text-danger">*</span></label>
-            <input type="number" step="0.01" min="0.01" class="form-control" id="billing-pay-amount" required>
-            <small class="text-muted" style="font-size: 0.75rem;">Cannot exceed current outstanding balance.</small>
+            <label for="billing-pay-amount" class="form-label fw-semibold">Payment Amount (₹) <span class="text-danger">*</span></label>
+            <input type="number" step="0.01" min="0.01" class="form-control form-control-lg" id="billing-pay-amount" placeholder="0.00" required>
+            <div class="form-text text-muted" id="billing-amount-help">Amount must be greater than 0 and cannot exceed the amount due.</div>
           </div>
 
+          <!-- Mode of Payment -->
           <div class="mb-3">
-            <label for="billing-pay-method" class="form-label">Payment Method <span class="text-danger">*</span></label>
+            <label for="billing-pay-method" class="form-label fw-semibold">Mode of Payment <span class="text-danger">*</span></label>
             <select class="form-select" id="billing-pay-method" required>
-              <option value="cash" selected>Cash</option>
-              <option value="card">Credit / Debit Card</option>
-              <option value="upi">UPI / Online Transfer</option>
-              <option value="bank_transfer">Bank Transfer</option>
-              <option value="cheque">Cheque</option>
+              <option value="" selected>Select mode of payment</option>
+              <option value="cash">Cash</option>
+              <option value="card">Card</option>
+              <option value="upi">UPI</option>
+              <option value="online">Online</option>
             </select>
           </div>
 
+          <!-- Reference / Transaction ID -->
           <div class="mb-2">
-            <label for="billing-pay-reference" class="form-label">Transaction Reference (Optional)</label>
-            <input type="text" class="form-control" id="billing-pay-reference" placeholder="e.g. UPI Ref # or Card Slip #">
+            <label for="billing-pay-reference" class="form-label fw-semibold">
+              Reference / Transaction ID <span id="ref-required-indicator" class="text-danger d-none">*</span>
+            </label>
+            <input type="text" class="form-control" id="billing-pay-reference" placeholder="Enter reference / transaction ID">
+            <div class="form-text text-muted" id="ref-help-text">Optional for Cash, required for Card, UPI, and Online.</div>
           </div>
         </div>
         <div class="modal-footer bg-light">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-success px-4" id="billing-pay-submit-btn">
-            <i class="bi bi-cash-stack me-1"></i> Record Payment
+          <button type="button" class="btn btn-outline-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary px-4 fw-semibold" id="billing-pay-submit-btn">
+            <i class="bi bi-check-circle me-1"></i> Confirm Payment
           </button>
         </div>
       </form>
@@ -290,7 +312,10 @@
       </div>
     </div>
   </div>
-</div>
+<!-- ===================================================================
+     PRINTABLE BILLING / RECEIPT CONTAINER (Used by window.print())
+=================================================================== -->
+<div id="printable-receipt-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="js/api.js?v=3.0"></script>

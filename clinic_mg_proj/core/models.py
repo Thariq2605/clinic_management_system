@@ -237,6 +237,7 @@ class Appointment(models.Model):
     STATUS_CHOICES = [
         ("scheduled", "Scheduled"),
         ("confirmed", "Confirmed"),
+        ("serving", "Serving"),
         ("completed", "Completed"),
         ("cancelled", "Cancelled"),
     ]
@@ -244,6 +245,11 @@ class Appointment(models.Model):
     PAYMENT_STATUS_CHOICES = [
         ("Pending", "Pending"),
         ("Paid", "Paid"),
+    ]
+
+    APPOINTMENT_TYPE_CHOICES = [
+        ("pre_booking", "Pre-Booking"),
+        ("walk_in", "Walk-In"),
     ]
 
     appointment_id = models.AutoField(primary_key=True)
@@ -279,6 +285,11 @@ class Appointment(models.Model):
         max_length=20,
         choices=PAYMENT_STATUS_CHOICES,
         default="Pending"
+    )
+    appointment_type = models.CharField(
+        max_length=20,
+        choices=APPOINTMENT_TYPE_CHOICES,
+        default="pre_booking"
     )
     created_at = models.DateTimeField()
     is_active = models.BooleanField(default=True)
