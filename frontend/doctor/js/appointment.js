@@ -25,6 +25,8 @@ const appointmentCount =
 const searchInput =
     document.getElementById("searchInput");
 
+let currentAppointments = [];
+
 
 /* ============================= */
 /* LOAD APPOINTMENTS              */
@@ -178,6 +180,8 @@ function displayAppointments(appointments) {
     appointmentTableBody.innerHTML = "";
 
 
+    currentAppointments = appointments;
+
     appointments.forEach(
         appointment => {
 
@@ -195,6 +199,26 @@ function displayAppointments(appointments) {
                     appointment.appointment_time
                 );
 
+            const isPaid = (appointment.payment_status || "").toLowerCase() === "paid";
+            const paymentBadge = isPaid
+                ? `<span class="status-badge status-paid">Paid</span>`
+                : `<span class="status-badge status-pending" title="Payment Pending: Patient must complete payment at reception first.">Payment Pending</span>`;
+
+            const actionButtons = isPaid
+                ? `
+                    <button
+                        class="view-btn"
+                        onclick="viewPatient(
+                            ${appointment.appointment_id}
+                        )"
+                    >
+                        View Patient
+                    </button>
+                    <button class="view-btn" onclick="openConsultation(${Number(appointment.appointment_id)})">Start Consultation</button>
+                `
+                : `
+                    <button class="view-btn disabled" disabled title="Payment is pending. Doctor access will be available after payment is completed.">Locked</button>
+                `;
 
             row.innerHTML = `
 
@@ -236,15 +260,11 @@ function displayAppointments(appointments) {
                 </td>
 
                 <td>
-                    <button
-                        class="view-btn"
-                        onclick="viewPatient(
-                            ${appointment.appointment_id}
-                        )"
-                    >
-                        View Patient
-                    </button>
-                    <button class="view-btn" onclick="openConsultation(${Number(appointment.appointment_id)})">Start Consultation</button>
+                    ${paymentBadge}
+                </td>
+
+                <td>
+                    ${actionButtons}
                 </td>
 
             `;
@@ -321,6 +341,12 @@ function viewPatient(appointmentId) {
         return;
     }
 
+    const appt = currentAppointments.find(a => String(a.appointment_id) === String(appointmentId));
+    if (appt && (appt.payment_status || "").toLowerCase() !== "paid") {
+        showError("Payment is pending. Doctor access will be available after payment is completed.");
+        return;
+    }
+
     localStorage.setItem("current_appointment_id", String(appointmentId));
 
     window.location.href =
@@ -330,6 +356,11 @@ function viewPatient(appointmentId) {
 function openConsultation(appointmentId) {
     if (!appointmentId || appointmentId === "null" || appointmentId === "undefined") {
         showError("This appointment does not have a valid appointment ID.");
+        return;
+    }
+    const appt = currentAppointments.find(a => String(a.appointment_id) === String(appointmentId));
+    if (appt && (appt.payment_status || "").toLowerCase() !== "paid") {
+        showError("Payment is pending. Doctor access will be available after payment is completed.");
         return;
     }
     localStorage.setItem("current_appointment_id", String(appointmentId));

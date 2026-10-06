@@ -553,3 +553,175 @@ body {
     padding: 0.75rem 1rem;
   }
 }
+
+/* -------------------------------------------------------------
+   Token Queue & Queue Component Styles
+------------------------------------------------------------- */
+.card-serving {
+  border-left: 5px solid var(--primary);
+  background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.card-serving::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.token-badge-large {
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1;
+  letter-spacing: 1px;
+}
+
+.token-badge-mini {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 0.875rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.token-badge-success {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.stat-metric-value {
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--text-dark);
+}
+
+/* -------------------------------------------------------------
+   Printable Billing Document / Receipt (@media print)
+------------------------------------------------------------- */
+#printable-receipt-container {
+  display: none;
+}
+
+@media print {
+  /* Hide all interactive and chrome elements */
+  body * {
+    visibility: hidden;
+  }
+
+  #printable-receipt-container,
+  #printable-receipt-container * {
+    visibility: visible;
+  }
+
+  #printable-receipt-container {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 12mm 15mm;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  }
+
+  #app-wrapper,
+  #sidebar,
+  .top-navbar,
+  .main-content,
+  .modal,
+  .modal-backdrop,
+  .toast-container,
+  .btn,
+  .btn-group,
+  header,
+  footer,
+  aside,
+  nav,
+  #sidebar-toggle-btn {
+    display: none !important;
+  }
+
+  .print-header {
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+  }
+
+  .print-brand {
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    color: #0f172a;
+  }
+
+  .print-subtitle {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #475569;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .print-section-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #475569;
+    border-bottom: 1px solid #cbd5e1;
+    padding-bottom: 4px;
+    margin-top: 18px;
+    margin-bottom: 12px;
+  }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+  }
+
+  .print-table th {
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    text-align: left;
+    border-bottom: 1.5px solid #94a3b8;
+  }
+
+  .print-table td {
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .print-total-row td {
+    font-weight: 700;
+    font-size: 0.95rem;
+    border-top: 1.5px solid #0f172a;
+    border-bottom: 1.5px solid #0f172a;
+  }
+
+  .print-footer {
+    border-top: 1px dashed #94a3b8;
+    margin-top: 24px;
+    padding-top: 14px;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #475569;
+  }
+}

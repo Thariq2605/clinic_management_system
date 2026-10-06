@@ -2222,6 +2222,20 @@ tbody tr:last-child td {
     color: white;
 }
 
+.view-btn:disabled,
+.view-btn.disabled {
+    background: #edf0f4;
+    border-color: #dfe5ed;
+    color: #aeb7c4;
+    cursor: not-allowed;
+}
+
+.view-btn:disabled:hover,
+.view-btn.disabled:hover {
+    background: #edf0f4;
+    color: #aeb7c4;
+}
+
 
 /* LOADING */
 

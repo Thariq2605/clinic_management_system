@@ -1,26 +1,18 @@
 /**
- * CLINIC MANAGEMENT SYSTEM - UNIFIED BILLING MODULE
- * Section 1: MEDICARE Receptionist Billing
- * Section 2: ClinixOne Admin Billing
+ * MEDICARE CLINIC MANAGEMENT SYSTEM - BILLING & PAYMENTS MODULE
+ * Handles recording consultation payments, frontend + backend validation,
+ * payment history viewing, and printable billing receipts.
  */
 
-// =========================================================
-// SECTION 1: MEDICARE RECEPTIONIST BILLING
-// =========================================================
-(function initReceptionistBillingModule() {
-  let recordPaymentModal = null;
-  let historyModal = null;
-  let currentAppointmentId = null;
-  let currentBalance = 0;
+let recordPaymentModal = null;
+let historyModal = null;
+let currentBillId = null;
+let currentAppointmentId = null;
+let currentBalance = 0;
+let currentBillData = null;
 
-  document.addEventListener("DOMContentLoaded", () => {
-    const isReceptionistBillingPage =
-      document.getElementById("billingPaymentModal") ||
-      document.getElementById("billingHistoryModal") ||
-      document.getElementById("billing-status-filter");
-    if (!isReceptionistBillingPage) return;
-
-    if (typeof checkAuth === "function" && !checkAuth(true)) return;
+document.addEventListener("DOMContentLoaded", () => {
+  if (!checkAuth(true)) return;
 
   const payModalEl = document.getElementById("billingPaymentModal");
   if (payModalEl) {
@@ -48,6 +40,12 @@
     }, 300));
   }
 
+  // Payment method selection change handler for dynamic validation indication
+  const methodSelect = document.getElementById("billing-pay-method");
+  if (methodSelect) {
+    methodSelect.addEventListener("change", handlePaymentMethodChange);
+  }
+
   const payForm = document.getElementById("billing-payment-form");
   if (payForm) {
     payForm.addEventListener("submit", handleBillingPaymentSubmit);
@@ -63,7 +61,28 @@ function debounce(func, wait) {
 }
 
 /**
- * Fetch and render billing table using appointments as the source
+ * Handle dynamic changes to payment mode to show/hide transaction reference requirements
+ */
+function handlePaymentMethodChange() {
+  const method = document.getElementById("billing-pay-method")?.value.toLowerCase();
+  const reqIndicator = document.getElementById("ref-required-indicator");
+  const helpText = document.getElementById("ref-help-text");
+  const refInput = document.getElementById("billing-pay-reference");
+
+  if (["card", "upi", "online"].includes(method)) {
+    if (reqIndicator) reqIndicator.classList.remove("d-none");
+    const label = method === "upi" ? "UPI" : method.charAt(0).toUpperCase() + method.slice(1);
+    if (helpText) helpText.textContent = `Transaction ID is required for ${label} payments.`;
+    if (refInput) refInput.placeholder = `Enter ${label} Transaction / Reference ID`;
+  } else {
+    if (reqIndicator) reqIndicator.classList.add("d-none");
+    if (helpText) helpText.textContent = "Optional for Cash, required for Card, UPI, and Online.";
+    if (refInput) refInput.placeholder = "Enter reference / receipt number (optional)";
+  }
+}
+
+/**
+ * Fetch and render billing table using the dedicated /bills/ endpoint
  */
 async function loadBillingRecords() {
   const tbody = document.getElementById("billing-tbody");
@@ -78,40 +97,49 @@ async function loadBillingRecords() {
   const searchFilter = document.getElementById("billing-search-input")?.value.trim() || "";
 
   try {
-    const appointments = await apiGet("/appointments/");
+    let url = "/bills/";
+    const params = [];
+    if (statusFilter && statusFilter !== "all") params.push(`status=${encodeURIComponent(statusFilter)}`);
+    if (searchFilter) params.push(`search=${encodeURIComponent(searchFilter)}`);
+    if (params.length > 0) url += `?${params.join("&")}`;
 
-    // Filter appointments
-    let filtered = appointments.filter((apt) => {
-      if ((apt.status || "").toLowerCase() === "cancelled") return false;
+    const bills = await apiGet(url);
 
-      const payStatus = (apt.payment_status || "Pending").toLowerCase();
-      if (statusFilter && statusFilter !== "all") {
-        if (payStatus !== statusFilter.toLowerCase()) return false;
-      }
-
-      if (searchFilter) {
-        const query = searchFilter.toLowerCase();
-        const pName = (apt.patient_name || "").toLowerCase();
-        const dName = (apt.doctor_name || "").toLowerCase();
-        const token = (apt.token_number || "").toLowerCase();
-        const id = String(apt.appointment_id);
-        if (!pName.includes(query) && !dName.includes(query) && !token.includes(query) && !id.includes(query)) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-
-    if (filtered.length === 0) {
+    if (!Array.isArray(bills) || bills.length === 0) {
       if (emptyState) emptyState.classList.remove("d-none");
     } else {
-      renderBillingTable(filtered, tbody);
+      renderBillingTable(bills, tbody);
     }
   } catch (error) {
     console.error("Billing fetch error:", error);
-    if (emptyState) emptyState.classList.remove("d-none");
-    showToast(error.message || "Failed to load billing records.", "danger");
+    // Fallback to /appointments/ if needed
+    try {
+      const appointments = await apiGet("/appointments/");
+      const transformed = appointments.map((apt) => ({
+        bill_id: apt.billing_details?.bill_id || apt.appointment_id,
+        bill_number: `BILL-${String(apt.billing_details?.bill_id || apt.appointment_id).padStart(4, "0")}`,
+        patient_id: apt.patient,
+        patient_name: apt.patient_name,
+        patient_mobile: apt.patient_mobile,
+        appointment_id: apt.appointment_id,
+        doctor_name: apt.doctor_name,
+        department_name: apt.department_name,
+        bill_type: "Consultation Fee",
+        total_amount: apt.billing_details?.total_amount || apt.consultation_fee,
+        paid_amount: apt.billing_details?.paid_amount || "0.00",
+        outstanding_balance: apt.billing_details?.outstanding_balance || apt.consultation_fee,
+        payment_status: apt.billing_details?.bill_payment_status || apt.payment_status?.toLowerCase() || "pending",
+        token_number: apt.token_number,
+      }));
+      if (transformed.length === 0) {
+        if (emptyState) emptyState.classList.remove("d-none");
+      } else {
+        renderBillingTable(transformed, tbody);
+      }
+    } catch (fallbackErr) {
+      if (emptyState) emptyState.classList.remove("d-none");
+      showToast(error.message || "Failed to load billing records.", "danger");
+    }
   } finally {
     if (spinner) spinner.classList.add("d-none");
   }
@@ -119,124 +147,127 @@ async function loadBillingRecords() {
 
 /**
  * Render Billing Table rows
- * Columns: Appointment ID, Patient, Doctor, Consultation Fee, Payment Status, Paid amount, Balance, Action
+ * Columns: Bill Number, Patient, Doctor, Bill Type, Total Amount, Paid Amount, Balance, Payment Status, Action
  */
-function renderBillingTable(appointments, tbody) {
+function renderBillingTable(bills, tbody) {
   if (!tbody) return;
   tbody.innerHTML = "";
 
-  appointments.forEach((apt) => {
+  bills.forEach((bill) => {
     const tr = document.createElement("tr");
-    const isPaid = (apt.payment_status || "").toLowerCase() === "paid";
-    const fee = parseFloat(apt.consultation_fee || 0);
+    const total = parseFloat(bill.total_amount || 0);
+    const paid = parseFloat(bill.paid_amount || 0);
+    const balance = parseFloat(bill.outstanding_balance !== undefined ? bill.outstanding_balance : (total - paid));
+    const isPaid = (bill.payment_status || "").toLowerCase() === "paid" || balance <= 0;
 
-    // Initial estimation or detail placeholder
-    const paidAmount = isPaid ? fee : 0;
-    const balance = isPaid ? 0 : fee;
+    const billNumber = bill.bill_number || `BILL-${String(bill.bill_id).padStart(4, "0")}`;
+    const billType = bill.bill_type || "Consultation Fee";
 
     tr.innerHTML = `
-      <td class="fw-bold text-dark">#${escapeHtml(apt.appointment_id)}</td>
       <td>
-        <div class="fw-bold text-dark">${escapeHtml(apt.patient_name || "Patient #" + apt.patient)}</div>
-        <small class="text-muted">Token: #${escapeHtml(apt.token_number || "-")}</small>
-      </td>
-      <td>
-        <div class="fw-medium">${escapeHtml(apt.doctor_name || "-")}</div>
-        <small class="text-muted">${escapeHtml(apt.department_name || "-")}</small>
+        <span class="fw-bold text-dark font-monospace">${escapeHtml(billNumber)}</span>
+        <small class="text-muted d-block" style="font-size: 0.725rem;">Appt #${escapeHtml(bill.appointment_id || "-")}</small>
       </td>
       <td>
-        <span class="fw-bold text-dark">${formatCurrency(fee)}</span>
+        <div class="fw-bold text-dark">${escapeHtml(bill.patient_name || "Patient #" + bill.patient_id)}</div>
+        <small class="text-muted">ID: #${escapeHtml(bill.patient_id || "-")} ${bill.patient_mobile ? "• " + escapeHtml(bill.patient_mobile) : ""}</small>
       </td>
-      <td>${getPaymentStatusBadge(apt.payment_status)}</td>
-      <td id="row-paid-${apt.appointment_id}">
-        <span class="fw-semibold ${isPaid ? "text-success" : "text-muted"}">${isPaid ? formatCurrency(fee) : "Calculated..."}</span>
+      <td>
+        <div class="fw-medium">${escapeHtml(bill.doctor_name || "-")}</div>
+        <small class="text-muted">${escapeHtml(bill.department_name || "-")}</small>
       </td>
-      <td id="row-balance-${apt.appointment_id}">
-        <span class="fw-bold ${isPaid ? "text-success" : "text-danger"}">${isPaid ? "₹0.00" : formatCurrency(fee)}</span>
+      <td>
+        <span class="badge bg-light text-primary border">${escapeHtml(billType)}</span>
       </td>
+      <td>
+        <span class="fw-bold text-dark">${formatCurrency(total)}</span>
+      </td>
+      <td>
+        <span class="fw-semibold text-success">${formatCurrency(paid)}</span>
+      </td>
+      <td>
+        <span class="fw-bold ${balance > 0 ? "text-danger" : "text-success"}">${formatCurrency(balance)}</span>
+      </td>
+      <td>${getPaymentStatusBadge(bill.payment_status)}</td>
       <td class="text-end">
         <div class="btn-group btn-group-sm">
           ${
-            !isPaid
-              ? `<button class="btn btn-outline-success btn-record-pay" data-id="${apt.appointment_id}" data-fee="${apt.consultation_fee}" title="Record Payment">
-                  <i class="bi bi-cash me-1"></i> Pay
+            balance > 0
+              ? `<button class="btn btn-outline-success btn-record-pay" data-bill-id="${bill.bill_id}" data-apt-id="${bill.appointment_id}" title="Record Payment">
+                  <i class="bi bi-cash-stack me-1"></i> Record Payment
                 </button>`
               : ""
           }
-          <button class="btn btn-outline-secondary btn-view-history" data-id="${apt.appointment_id}" title="Payment History">
+          <button class="btn btn-outline-primary btn-print-bill" data-bill-id="${bill.bill_id}" title="Print Bill / Receipt">
+            <i class="bi bi-printer me-1"></i> Print Bill
+          </button>
+          <button class="btn btn-outline-secondary btn-view-history" data-bill-id="${bill.bill_id}" data-apt-id="${bill.appointment_id}" title="Payment History">
             <i class="bi bi-clock-history"></i> History
           </button>
-          <a href="appointment-details.html?id=${apt.appointment_id}" class="btn btn-outline-primary" title="Details">
-            <i class="bi bi-eye"></i>
-          </a>
         </div>
       </td>
     `;
     tbody.appendChild(tr);
-
-    // Fetch payments asynchronously to accurately populate Paid amount and Balance
-    if (!isPaid) {
-      apiGet(`/appointments/${apt.appointment_id}/payments/`).then((payments) => {
-        let paid = 0;
-        if (Array.isArray(payments)) {
-          paid = payments.reduce((acc, p) => acc + parseFloat(p.amount || 0), 0);
-        }
-        const bal = Math.max(0, fee - paid);
-        const paidCell = document.getElementById(`row-paid-${apt.appointment_id}`);
-        const balCell = document.getElementById(`row-balance-${apt.appointment_id}`);
-        if (paidCell) paidCell.innerHTML = `<span class="fw-semibold text-success">${formatCurrency(paid)}</span>`;
-        if (balCell) balCell.innerHTML = `<span class="fw-bold text-danger">${formatCurrency(bal)}</span>`;
-      }).catch(() => {});
-    }
   });
 
+  // Attach action event listeners
   tbody.querySelectorAll(".btn-record-pay").forEach((btn) => {
     btn.addEventListener("click", () => {
-      openBillingPaymentModal(btn.dataset.id, btn.dataset.fee);
+      openBillingPaymentModal(btn.dataset.billId, btn.dataset.aptId);
+    });
+  });
+
+  tbody.querySelectorAll(".btn-print-bill").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      printBillingReceipt(btn.dataset.billId);
     });
   });
 
   tbody.querySelectorAll(".btn-view-history").forEach((btn) => {
     btn.addEventListener("click", () => {
-      openPaymentHistoryModal(btn.dataset.id);
+      openPaymentHistoryModal(btn.dataset.billId, btn.dataset.aptId);
     });
   });
 }
 
 /**
  * Open Record Payment Modal
- * Before payment: Calls GET /api/receptionist/appointments/<id>/payments/
- * to calculate existing payments and exact outstanding balance.
+ * Populates Bill Number, Patient Name, Bill Type, and Amount Due
  */
-async function openBillingPaymentModal(aptId, fee) {
+async function openBillingPaymentModal(billId, aptId) {
+  currentBillId = billId;
   currentAppointmentId = aptId;
-  const modalApt = document.getElementById("billing-modal-apt-id");
+
+  const errorBox = document.getElementById("billing-pay-error");
+  const modalBillNum = document.getElementById("billing-modal-bill-num");
+  const modalPatientName = document.getElementById("billing-modal-patient-name");
+  const modalBillType = document.getElementById("billing-modal-bill-type");
   const modalTotal = document.getElementById("billing-modal-total");
   const modalPaid = document.getElementById("billing-modal-paid");
   const modalBalance = document.getElementById("billing-modal-balance");
   const amountInput = document.getElementById("billing-pay-amount");
-  const errorBox = document.getElementById("billing-pay-error");
+  const methodSelect = document.getElementById("billing-pay-method");
+  const refInput = document.getElementById("billing-pay-reference");
 
   if (errorBox) errorBox.classList.add("d-none");
-  if (modalApt) modalApt.textContent = `#${aptId}`;
+  if (methodSelect) methodSelect.value = "";
+  if (refInput) refInput.value = "";
+  handlePaymentMethodChange();
 
   try {
-    // 1. Fetch appointment details for total fee
-    const aptDetail = await apiGet(`/appointments/${aptId}/`);
-    const totalFee = parseFloat(aptDetail.consultation_fee || fee || 0);
+    const bill = await apiGet(`/bills/${billId}/`);
+    currentBillData = bill;
 
-    // 2. Fetch payments to calculate existing payments
-    const payments = await apiGet(`/appointments/${aptId}/payments/`);
-    let paidTotal = 0;
-    if (Array.isArray(payments)) {
-      paidTotal = payments.reduce((acc, p) => acc + parseFloat(p.amount || 0), 0);
-    }
-
-    const balance = Math.max(0, totalFee - paidTotal);
+    const total = parseFloat(bill.total_amount || 0);
+    const paid = parseFloat(bill.paid_amount || 0);
+    const balance = parseFloat(bill.outstanding_balance !== undefined ? bill.outstanding_balance : (total - paid));
     currentBalance = balance;
 
-    if (modalTotal) modalTotal.textContent = formatCurrency(totalFee);
-    if (modalPaid) modalPaid.textContent = formatCurrency(paidTotal);
+    if (modalBillNum) modalBillNum.textContent = bill.bill_number || `BILL-${String(bill.bill_id).padStart(4, "0")}`;
+    if (modalPatientName) modalPatientName.textContent = bill.patient_name || "--";
+    if (modalBillType) modalBillType.textContent = bill.bill_type || "Consultation Fee";
+    if (modalTotal) modalTotal.textContent = formatCurrency(total);
+    if (modalPaid) modalPaid.textContent = formatCurrency(paid);
     if (modalBalance) modalBalance.textContent = formatCurrency(balance);
 
     if (amountInput) {
@@ -246,56 +277,108 @@ async function openBillingPaymentModal(aptId, fee) {
 
     if (recordPaymentModal) recordPaymentModal.show();
   } catch (err) {
-    showToast("Failed to load appointment details.", "danger");
+    showToast("Failed to load bill details for payment.", "danger");
   }
 }
 
 /**
- * Handle Billing Payment Submission (POST /appointments/<id>/payments/)
- * Validates amount > 0 and amount <= outstanding balance
+ * Handle Billing Payment Submission
+ * Implements strict frontend validation:
+ * 1. Payment mode is required.
+ * 2. Payment amount must be valid.
+ * 3. Payment amount must be greater than 0.
+ * 4. Payment amount must not exceed the amount due.
+ * 5. Reference/Transaction ID required for Card, UPI, Online; optional for Cash.
+ * 6. Duplicate prevention.
  */
 async function handleBillingPaymentSubmit(e) {
   e.preventDefault();
+
   const submitBtn = document.getElementById("billing-pay-submit-btn");
   const errorBox = document.getElementById("billing-pay-error");
   const amountInput = document.getElementById("billing-pay-amount");
+  const methodSelect = document.getElementById("billing-pay-method");
+  const refInput = document.getElementById("billing-pay-reference");
+
   const amountVal = parseFloat(amountInput.value);
-  const methodVal = document.getElementById("billing-pay-method").value;
-  const refVal = document.getElementById("billing-pay-reference").value.trim() || null;
+  const methodVal = methodSelect.value.trim().toLowerCase();
+  const refVal = refInput.value.trim();
+
+  function showValidationError(message) {
+    if (errorBox) {
+      errorBox.textContent = message;
+      errorBox.classList.remove("d-none");
+    } else {
+      showToast(message, "danger");
+    }
+  }
 
   if (errorBox) errorBox.classList.add("d-none");
 
-  // Validate amount > 0
-  if (isNaN(amountVal) || amountVal <= 0) {
-    if (errorBox) {
-      errorBox.textContent = "Payment amount must be greater than zero.";
-      errorBox.classList.remove("d-none");
-    }
+  // 1. Payment mode is required
+  if (!methodVal) {
+    showValidationError("Please select a payment mode.");
+    methodSelect.focus();
     return;
   }
 
-  // Validate amount <= outstanding balance
-  if (amountVal > currentBalance) {
-    if (errorBox) {
-      errorBox.textContent = `Payment exceeds outstanding balance of ₹${currentBalance.toFixed(2)}.`;
-      errorBox.classList.remove("d-none");
-    }
+  // 2. Payment amount must be valid number
+  if (isNaN(amountVal) || amountInput.value.trim() === "") {
+    showValidationError("Please enter a valid payment amount.");
+    amountInput.focus();
     return;
+  }
+
+  // 3. Payment amount must be greater than 0
+  if (amountVal <= 0) {
+    showValidationError("Payment amount must be greater than 0.");
+    amountInput.focus();
+    return;
+  }
+
+  // 4. Payment amount must not exceed the amount due
+  if (amountVal > currentBalance) {
+    showValidationError("Payment amount cannot exceed the amount due.");
+    amountInput.focus();
+    return;
+  }
+
+  // 5. Reference/Transaction ID required for Card, UPI, and Online
+  if (["card", "upi", "online"].includes(methodVal)) {
+    if (!refVal) {
+      const modeLabel = methodVal === "upi" ? "UPI" : methodVal.charAt(0).toUpperCase() + methodVal.slice(1);
+      showValidationError(`Transaction ID is required for ${modeLabel} payments.`);
+      refInput.focus();
+      return;
+    }
   }
 
   const payload = {
     amount: amountVal.toFixed(2),
     payment_method: methodVal,
   };
-  if (refVal) payload.transaction_reference = refVal;
+  if (refVal) {
+    payload.transaction_reference = refVal;
+  }
 
-  setButtonLoading(submitBtn, true, "Processing...");
+  // 6. Prevent duplicate submission while request is processing
+  setButtonLoading(submitBtn, true, "Confirming Payment...");
 
   try {
-    const response = await apiPost(`/appointments/${currentAppointmentId}/payments/`, payload);
+    // Attempt payment via direct bill endpoint, with fallback to appointment payments endpoint
+    let response;
+    try {
+      response = await apiPost(`/bills/${currentBillId}/payments/`, payload);
+    } catch (postErr) {
+      if (currentAppointmentId) {
+        response = await apiPost(`/appointments/${currentAppointmentId}/payments/`, payload);
+      } else {
+        throw postErr;
+      }
+    }
 
     showToast(
-      `Payment recorded! ID: #${response.payment_id} | Bill #${response.bill_id} | Status: ${response.bill_payment_status} | Paid: ₹${response.paid_total} | Balance: ₹${response.balance}`,
+      `Payment confirmed! Bill ${response.bill_number || "#" + response.bill_id} status updated to ${response.bill_payment_status?.toUpperCase() || "PAID"}.`,
       "success"
     );
 
@@ -303,35 +386,38 @@ async function handleBillingPaymentSubmit(e) {
     document.getElementById("billing-payment-form").reset();
     loadBillingRecords();
   } catch (error) {
-    console.error("Payment error:", error);
-    if (errorBox) {
-      errorBox.textContent = error.message || "Failed to record payment.";
-      errorBox.classList.remove("d-none");
-    } else {
-      showToast(error.message || "Unable to record payment.", "danger");
-    }
+    console.error("Payment submission error:", error);
+    const msg = error.message || error.error || error.amount || "Failed to record payment.";
+    showValidationError(msg);
   } finally {
     setButtonLoading(submitBtn, false);
   }
 }
 
 /**
- * Open Payment History Modal (GET /appointments/<id>/payments/)
- * Displays: Payment ID, Bill ID, Amount, Payment method, Payment date, Transaction reference, Active status
+ * Open Payment History Modal
+ * Displays: Payment ID, Bill ID, Amount, Payment Method, Payment Date, Transaction Reference
  */
-async function openPaymentHistoryModal(aptId) {
+async function openPaymentHistoryModal(billId, aptId) {
   const tbody = document.getElementById("modal-history-tbody");
   const emptyState = document.getElementById("modal-history-empty");
   const modalAptTitle = document.getElementById("modal-history-apt-id");
 
-  if (modalAptTitle) modalAptTitle.textContent = `#${aptId}`;
+  if (modalAptTitle) modalAptTitle.textContent = `Bill #${billId}`;
   if (tbody) tbody.innerHTML = "";
   if (emptyState) emptyState.classList.add("d-none");
 
   if (historyModal) historyModal.show();
 
   try {
-    const payments = await apiGet(`/appointments/${aptId}/payments/`);
+    let payments = [];
+    try {
+      payments = await apiGet(`/bills/${billId}/payments/`);
+    } catch {
+      if (aptId) {
+        payments = await apiGet(`/appointments/${aptId}/payments/`);
+      }
+    }
 
     if (!Array.isArray(payments) || payments.length === 0) {
       if (emptyState) emptyState.classList.remove("d-none");
@@ -341,12 +427,12 @@ async function openPaymentHistoryModal(aptId) {
     payments.forEach((p) => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td class="fw-semibold text-primary">#${escapeHtml(p.payment_id)}</td>
-        <td class="text-muted">#${escapeHtml(p.bill || "-")}</td>
+        <td class="fw-semibold text-primary font-monospace">#${escapeHtml(p.payment_id)}</td>
+        <td class="text-muted font-monospace">#${escapeHtml(p.bill || billId)}</td>
         <td class="fw-bold text-success">${formatCurrency(p.amount)}</td>
         <td><span class="badge bg-light text-dark border text-uppercase">${escapeHtml(p.payment_method)}</span></td>
-        <td>${formatDate(p.payment_date)} <small class="text-muted">${formatTime(p.payment_date.split("T")[1]?.substring(0, 8))}</small></td>
-        <td><small class="text-muted">${escapeHtml(p.transaction_reference || "N/A")}</small></td>
+        <td>${formatDate(p.payment_date)} <small class="text-muted">${formatTime(p.payment_date?.split("T")[1]?.substring(0, 8))}</small></td>
+        <td><small class="text-muted font-monospace">${escapeHtml(p.transaction_reference || "N/A")}</small></td>
         <td>${getActiveStatusBadge(p.is_active)}</td>
       `;
       tbody.appendChild(tr);
@@ -356,292 +442,161 @@ async function openPaymentHistoryModal(aptId) {
     if (emptyState) emptyState.classList.remove("d-none");
   }
 }
-})();
 
-// =========================================================
-// SECTION 2: CLINIXONE ADMIN BILLING
-// =========================================================
-(function initAdminBillingModule() {
-  let allBills = [];
-  let allPatients = [];
-  let allAppointments = [];
-  let editingBillId = null;
+/**
+ * FEATURE 2 — PRINT BILLING / RECEIPT
+ * Generates a clean printable billing document containing:
+ * - MEDICARE CLINIC MANAGEMENT SYSTEM
+ * - Clinic information
+ * - Bill Number, Patient Name, Patient ID, Date, Bill Type
+ * - BILL DETAILS (Description, Amount)
+ * - Subtotal, Discount, Tax, Total, Paid, Balance, Payment Status
+ * - PAYMENT DETAILS (Mode, Transaction ID, Payment Date)
+ * - Thank you for visiting MEDICARE
+ * and invokes window.print()
+ */
+async function printBillingReceipt(billId) {
+  try {
+    const bill = await apiGet(`/bills/${billId}/`);
+    const printContainer = document.getElementById("printable-receipt-container");
+    if (!printContainer) return;
 
-  document.addEventListener("DOMContentLoaded", async function () {
-    const isAdminBillingPage =
-      document.getElementById("billTableBody") ||
-      document.getElementById("billModal");
-    if (!isAdminBillingPage) return;
+    const total = parseFloat(bill.total_amount || 0);
+    const paid = parseFloat(bill.paid_amount || 0);
+    const balance = parseFloat(bill.outstanding_balance !== undefined ? bill.outstanding_balance : (total - paid));
+    const billNumber = bill.bill_number || `BILL-${String(bill.bill_id).padStart(4, "0")}`;
+    const billType = bill.bill_type || "Consultation Fee";
 
-    await Promise.all([
-      loadPatients(),
-      loadAppointments()
-    ]);
-    await loadBills();
-    setupBillEvents();
-  });
+    // Most recent payment details if existing
+    const payments = Array.isArray(bill.payments) ? bill.payments : [];
+    const latestPayment = payments.length > 0 ? payments[0] : null;
 
-/* Load Reference Data */
-async function loadPatients() {
-    try {
-        allPatients = await api.get("/api/admin/patients/");
-        const select = document.getElementById("billPatient");
-        if (select) {
-            select.innerHTML = `<option value="">Select patient...</option>`;
-            allPatients.forEach(p => {
-                select.innerHTML += `<option value="${p.patient_id}">${escapeHtml(p.full_name)}</option>`;
-            });
-        }
-    } catch (err) {
-        console.error("Failed to load patients:", err);
-    }
-}
+    printContainer.innerHTML = `
+      <div class="print-header d-flex justify-content-between align-items-center">
+        <div>
+          <div class="print-brand">MEDICARE</div>
+          <div class="print-subtitle">CLINIC MANAGEMENT SYSTEM</div>
+          ${bill.department_name ? `<div style="font-size: 0.85rem; color: #475569; margin-top: 4px;">Department of ${escapeHtml(bill.department_name)}</div>` : ""}
+        </div>
+        <div class="text-end">
+          <div style="font-size: 1.15rem; font-weight: 700; color: #0f172a;">TAX INVOICE / RECEIPT</div>
+          <div style="font-size: 0.85rem; color: #475569;">Date: ${formatDate(bill.bill_date || new Date().toISOString())}</div>
+          <div class="font-monospace fw-bold" style="font-size: 0.95rem; color: #0f172a;">${escapeHtml(billNumber)}</div>
+        </div>
+      </div>
 
-async function loadAppointments() {
-    try {
-        allAppointments = await api.get("/api/admin/appointments/");
-        const select = document.getElementById("billAppointment");
-        if (select) {
-            select.innerHTML = `<option value="">Select appointment (optional)...</option>`;
-            allAppointments.forEach(a => {
-                select.innerHTML += `<option value="${a.appointment_id}">APT-${a.appointment_id} - ${escapeHtml(a.patient_name)}</option>`;
-            });
-        }
-    } catch (err) {
-        console.error("Failed to load appointments:", err);
-    }
-}
+      <!-- Bill & Patient Metadata -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; font-size: 0.9rem;">
+        <div>
+          <div style="color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 600;">Patient Details</div>
+          <div style="font-weight: 700; font-size: 1.05rem; color: #0f172a;">${escapeHtml(bill.patient_name || "--")}</div>
+          <div>Patient ID: <span class="font-monospace">#${escapeHtml(bill.patient_id || "--")}</span></div>
+          ${bill.patient_mobile ? `<div>Mobile: ${escapeHtml(bill.patient_mobile)}</div>` : ""}
+        </div>
+        <div style="text-align: right;">
+          <div style="color: #64748b; font-size: 0.75rem; text-transform: uppercase; font-weight: 600;">Consulting Doctor</div>
+          <div style="font-weight: 700; font-size: 1.05rem; color: #0f172a;">${escapeHtml(bill.doctor_name || "--")}</div>
+          <div>Bill Type: <span style="font-weight: 600;">${escapeHtml(billType)}</span></div>
+          ${bill.token_number ? `<div>Token Number: <span class="font-monospace fw-bold">#${escapeHtml(bill.token_number)}</span></div>` : ""}
+        </div>
+      </div>
 
-/* Load Bills */
-async function loadBills() {
-    const tableBody = document.getElementById("billsTableBody");
-    if (!tableBody) return;
-
-    tableBody.innerHTML = `
-        <tr>
-            <td colspan="7" class="table-loading">
-                <span class="spinner"></span> Loading bills...
+      <!-- Bill Details Table -->
+      <div class="print-section-title">BILL DETAILS</div>
+      <table class="print-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th style="width: 140px; text-align: right;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div style="font-weight: 600; color: #0f172a;">${escapeHtml(billType)}</div>
+              <small style="color: #64748b;">Consultation with ${escapeHtml(bill.doctor_name || "Doctor")}</small>
             </td>
-        </tr>
+            <td style="text-align: right; font-weight: 600;">${formatCurrency(total)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Financial Summary Table -->
+      <div style="margin-left: auto; width: 320px; margin-bottom: 24px;">
+        <table style="width: 100%; font-size: 0.9rem;">
+          <tr>
+            <td style="padding: 4px 0; color: #64748b;">Subtotal:</td>
+            <td style="padding: 4px 0; text-align: right; font-weight: 600;">${formatCurrency(total)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #64748b;">Total:</td>
+            <td style="padding: 4px 0; text-align: right; font-weight: 700; font-size: 1rem; color: #0f172a;">${formatCurrency(total)}</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0; color: #15803d;">Paid Amount:</td>
+            <td style="padding: 4px 0; text-align: right; font-weight: 700; color: #15803d;">${formatCurrency(paid)}</td>
+          </tr>
+          <tr style="border-top: 1.5px solid #0f172a; border-bottom: 1.5px solid #0f172a;">
+            <td style="padding: 8px 0; font-weight: 700; color: #0f172a;">Balance Due:</td>
+            <td style="padding: 8px 0; text-align: right; font-weight: 800; font-size: 1.1rem; color: ${balance > 0 ? "#b91c1c" : "#15803d"};">
+              ${formatCurrency(balance)}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #64748b;">Payment Status:</td>
+            <td style="padding: 6px 0; text-align: right; font-weight: 700; text-transform: uppercase;">
+              ${escapeHtml(bill.payment_status || "PENDING")}
+            </td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- Payment Details Section -->
+      ${
+        latestPayment
+          ? `
+          <div class="print-section-title">PAYMENT DETAILS</div>
+          <table class="print-table">
+            <thead>
+              <tr>
+                <th>Payment Mode</th>
+                <th>Transaction ID</th>
+                <th>Payment Date</th>
+                <th style="text-align: right;">Amount Paid</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${payments
+                .map(
+                  (p) => `
+                <tr>
+                  <td style="text-transform: uppercase; font-weight: 600;">${escapeHtml(p.payment_method)}</td>
+                  <td class="font-monospace">${escapeHtml(p.transaction_reference || "N/A")}</td>
+                  <td>${formatDate(p.payment_date)} ${formatTime(p.payment_date?.split("T")[1]?.substring(0, 8))}</td>
+                  <td style="text-align: right; font-weight: 700; color: #15803d;">${formatCurrency(p.amount)}</td>
+                </tr>
+              `
+                )
+                .join("")}
+            </tbody>
+          </table>
+          `
+          : `
+          <div class="print-section-title">PAYMENT DETAILS</div>
+          <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 16px;">No payments recorded yet. Amount due is ${formatCurrency(balance)}.</div>
+          `
+      }
+
+      <div class="print-footer">
+        <div style="font-weight: 700; color: #0f172a; margin-bottom: 4px;">Thank you for visiting MEDICARE</div>
+        <div style="font-size: 0.75rem; color: #94a3b8;">This is a computer-generated receipt from MEDICARE Clinic Management System.</div>
+      </div>
     `;
 
-    try {
-        const searchInput = document.getElementById("billingSearch");
-        const statusFilter = document.getElementById("paymentStatusFilter");
-        const dateInput = document.getElementById("billingDate");
-
-        const params = {};
-        if (searchInput && searchInput.value.trim()) params.search = searchInput.value.trim();
-        if (statusFilter && statusFilter.value && statusFilter.value !== "all") params.payment_status = statusFilter.value;
-        if (dateInput && dateInput.value) params.date = dateInput.value;
-
-        allBills = await api.get("/api/admin/bills/", params);
-        renderBillsTable(allBills);
-    } catch (err) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="7" class="table-empty" style="color: var(--red);">
-                    <div class="table-empty-icon">⚠</div>
-                    Failed to load bills: ${err.message}
-                </td>
-            </tr>
-        `;
-    }
+    // Trigger browser print dialog
+    window.print();
+  } catch (err) {
+    console.error("Print receipt error:", err);
+    showToast("Failed to load invoice for printing.", "danger");
+  }
 }
-
-/* Render Table */
-function renderBillsTable(bills) {
-    const tableBody = document.getElementById("billsTableBody");
-    const countEl = document.getElementById("resultCount");
-
-    if (countEl) {
-        countEl.textContent = `Showing ${bills ? bills.length : 0} bills`;
-    }
-
-    let totalBilled = 0;
-    let totalPaid = 0;
-    let totalOutstanding = 0;
-
-    if (bills && bills.length > 0) {
-        bills.forEach(bill => {
-            totalBilled += parseFloat(bill.total_amount || 0);
-            totalPaid += parseFloat(bill.paid_amount || 0);
-            totalOutstanding += parseFloat(bill.balance_amount || 0);
-        });
-    }
-
-    const billsCountEl = document.getElementById("totalBills");
-    const billedEl = document.getElementById("totalBilled");
-    const paidEl = document.getElementById("totalPaid");
-    const outstandingEl = document.getElementById("totalOutstanding");
-
-    if (billsCountEl) billsCountEl.textContent = bills ? bills.length : 0;
-    if (billedEl) billedEl.textContent = `₹${totalBilled.toFixed(2)}`;
-    if (paidEl) paidEl.textContent = `₹${totalPaid.toFixed(2)}`;
-    if (outstandingEl) outstandingEl.textContent = `₹${totalOutstanding.toFixed(2)}`;
-
-    if (!tableBody) return;
-
-    if (!bills || bills.length === 0) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="7" class="table-empty">
-                    <div class="table-empty-icon">▤</div>
-                    No bills found.
-                </td>
-            </tr>
-        `;
-        return;
-    }
-
-    tableBody.innerHTML = "";
-
-    bills.forEach(bill => {
-        const row = document.createElement("tr");
-        
-        let statusBadge = '';
-        if (bill.payment_status === "paid") {
-            statusBadge = `<span class="paid-badge">Paid</span>`;
-        } else if (bill.payment_status === "partial") {
-            statusBadge = `<span class="partial-badge" style="background: #eaf2ff; color: #1769e8; padding: 4px 8px; border-radius: 12px; font-size: 7px; font-weight: 700;">Partial</span>`;
-        } else {
-            statusBadge = `<span class="unpaid-badge" style="background: #fdebee; color: #df5366; padding: 4px 8px; border-radius: 12px; font-size: 7px; font-weight: 700;">Pending</span>`;
-        }
-        
-        row.innerHTML = `
-            <td>
-                <span class="invoice-id">#INV-${bill.bill_id}</span>
-            </td>
-            <td>
-                <div class="person-name">${escapeHtml(bill.patient_name)}</div>
-                <div class="person-subtext">Date: ${bill.bill_date}</div>
-            </td>
-            <td>
-                <span class="appointment-ref">${bill.appointment ? '#APT-'+bill.appointment : 'N/A'}</span>
-            </td>
-            <td>
-                <div class="person-name">Dr. ${escapeHtml(bill.doctor_name)}</div>
-            </td>
-            <td>
-                <span class="amount">₹${parseFloat(bill.total_amount).toFixed(2)}</span>
-            </td>
-            <td>
-                ${statusBadge}
-            </td>
-            <td>
-                <div class="action-buttons">
-                    <button class="action-btn edit-btn" data-id="${bill.bill_id}">Edit</button>
-                    <button class="action-btn delete-btn" data-id="${bill.bill_id}">Delete</button>
-                </div>
-            </td>
-        `;
-        tableBody.appendChild(row);
-    });
-}
-
-/* Events */
-function setupBillEvents() {
-    const searchInput = document.getElementById("billingSearch");
-    const statusFilter = document.getElementById("paymentStatusFilter");
-    const dateInput = document.getElementById("billingDate");
-    const addBtn = document.querySelector(".add-bill-btn");
-    const form = document.getElementById("billForm");
-    const tableBody = document.getElementById("billsTableBody");
-
-    let debounceTimer;
-    if (searchInput) {
-        searchInput.addEventListener("input", function () {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(loadBills, 300);
-        });
-    }
-
-    if (statusFilter) statusFilter.addEventListener("change", loadBills);
-    if (dateInput) dateInput.addEventListener("change", loadBills);
-
-    if (addBtn) {
-        addBtn.addEventListener("click", function () {
-            editingBillId = null;
-            document.getElementById("billModalTitle").textContent = "Create New Bill";
-            form.reset();
-            document.getElementById("billDateInput").valueAsDate = new Date();
-            openModal("billModal");
-        });
-    }
-
-    if (form) {
-        form.addEventListener("submit", async function (e) {
-            e.preventDefault();
-            const submitBtn = document.getElementById("saveBillBtn");
-            const errorEl = document.getElementById("billFormError");
-
-            errorEl.classList.remove("active");
-            errorEl.textContent = "";
-
-            const payload = {
-                patient: document.getElementById("billPatient").value,
-                appointment: document.getElementById("billAppointment").value,
-                total_amount: document.getElementById("billTotalAmount").value,
-                bill_date: document.getElementById("billDateInput").value,
-                payment_status: document.getElementById("billPaymentStatus").value,
-            };
-
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = `<span class="spinner"></span> Saving...`;
-
-            try {
-                if (editingBillId) {
-                    await api.patch(`/api/admin/bills/${editingBillId}/`, payload);
-                    showToast("Bill updated successfully.", "success");
-                } else {
-                    await api.post("/api/admin/bills/", payload);
-                    showToast("Bill created successfully.", "success");
-                }
-                closeModal("billModal");
-                loadBills();
-            } catch (err) {
-                errorEl.textContent = err.message || "Failed to save bill.";
-                errorEl.classList.add("active");
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = "Save Bill";
-            }
-        });
-    }
-
-    if (tableBody) {
-        tableBody.addEventListener("click", async function (e) {
-            const editBtn = e.target.closest(".edit-btn");
-            const deleteBtn = e.target.closest(".delete-btn");
-
-            if (editBtn) {
-                const id = parseInt(editBtn.dataset.id);
-                const bill = allBills.find(b => b.bill_id === id);
-                if (bill) {
-                    editingBillId = id;
-                    document.getElementById("billModalTitle").textContent = "Edit Bill";
-                    
-                    document.getElementById("billPatient").value = bill.patient;
-                    document.getElementById("billAppointment").value = bill.appointment || "";
-                    document.getElementById("billTotalAmount").value = bill.total_amount;
-                    document.getElementById("billDateInput").value = bill.bill_date;
-                    document.getElementById("billPaymentStatus").value = bill.payment_status.toLowerCase();
-
-                    openModal("billModal");
-                }
-            } else if (deleteBtn) {
-                const id = parseInt(deleteBtn.dataset.id);
-                if (confirm("Are you sure you want to delete this bill?")) {
-                    try {
-                        await api.delete(`/api/admin/bills/${id}/`);
-                        showToast("Bill deleted.", "info");
-                        loadBills();
-                    } catch (err) {
-                        showToast(err.message || "Failed to delete bill.", "error");
-                    }
-                }
-            }
-        });
-    }
-}
-})();

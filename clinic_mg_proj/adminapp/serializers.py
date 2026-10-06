@@ -252,6 +252,14 @@ class MedicineSerializer(serializers.ModelSerializer):
         return "Available"
 
 
+import re
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.validators import validate_email as django_validate_email
+
+VALID_GENDERS = ["Male", "Female", "Other"]
+VALID_BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
+
+
 class PatientSerializer(serializers.ModelSerializer):
     age = serializers.SerializerMethodField()
 
@@ -277,6 +285,94 @@ class PatientSerializer(serializers.ModelSerializer):
             return None
         today = date.today()
         return today.year - obj.dob.year - ((today.month, today.day) < (obj.dob.month, obj.dob.day))
+
+    def validate_full_name(self, value):
+        if value is None:
+            raise serializers.ValidationError("Please enter a valid patient name.")
+        trimmed = str(value).strip()
+        if len(trimmed) < 2:
+            raise serializers.ValidationError("Please enter a valid patient name.")
+        if len(trimmed) > 100:
+            raise serializers.ValidationError("Full name cannot exceed 100 characters.")
+        if not re.match(r"^[a-zA-Z\s\.\'\-]+$", trimmed) or not any(c.isalpha() for c in trimmed):
+            raise serializers.ValidationError("Please enter a valid patient name.")
+        return trimmed
+
+    def validate_dob(self, value):
+        if value is None:
+            raise serializers.ValidationError("Date of birth is required.")
+        if value > timezone.localdate():
+            raise serializers.ValidationError("Date of birth cannot be in the future.")
+        if value < date(1900, 1, 1):
+            raise serializers.ValidationError("Please enter a valid date of birth.")
+        return value
+
+    def validate_gender(self, value):
+        if value is None or not str(value).strip():
+            raise serializers.ValidationError("Please select a valid gender.")
+        trimmed = str(value).strip()
+        matched = next((g for g in VALID_GENDERS if g.lower() == trimmed.lower()), None)
+        if not matched:
+            raise serializers.ValidationError("Please select a valid gender.")
+        return matched
+
+    def validate_blood_group(self, value):
+        if value is None or not str(value).strip():
+            return ""
+        trimmed = str(value).strip().upper()
+        if trimmed not in VALID_BLOOD_GROUPS:
+            raise serializers.ValidationError("Please select a valid blood group.")
+        return trimmed
+
+    def validate_mobile_number(self, value):
+        if value is None:
+            raise serializers.ValidationError("Phone number must contain exactly 10 digits.")
+        val = str(value).strip()
+        if not re.match(r"^[0-9]{10}$", val):
+            raise serializers.ValidationError("Phone number must contain exactly 10 digits.")
+        return val
+
+    def validate_emergency_contact(self, value):
+        if value is None:
+            return ""
+        val = str(value).strip()
+        if not val:
+            return ""
+        if not re.match(r"^[0-9]{10}$", val):
+            raise serializers.ValidationError("Emergency contact must contain exactly 10 digits.")
+        return val
+
+    def validate_email(self, value):
+        if value is None:
+            return ""
+        val = str(value).strip().lower()
+        if not val:
+            return ""
+        try:
+            django_validate_email(val)
+        except DjangoValidationError:
+            raise serializers.ValidationError("Please enter a valid email address.")
+        return val
+
+    def validate_address(self, value):
+        if value is None:
+            return ""
+        val = str(value).strip()
+        if not val:
+            return ""
+        if len(val) > 255:
+            raise serializers.ValidationError("Residential address cannot exceed 255 characters.")
+        return val
+
+    def validate(self, attrs):
+        mobile = attrs.get("mobile_number")
+        if mobile:
+            qs = Patient.objects.filter(mobile_number__iexact=mobile.strip(), is_active=True)
+            if self.instance:
+                qs = qs.exclude(patient_id=self.instance.patient_id)
+            if qs.exists():
+                raise serializers.ValidationError({"mobile_number": "A patient with this mobile number already exists."})
+        return attrs
 
 
 class AppointmentSerializer(serializers.ModelSerializer):

@@ -135,13 +135,24 @@ async function loadAvailableAppointments() {
             target.innerHTML = `<div class="empty-state"><h3>No appointments today</h3><p>There are no appointments scheduled for you today.</p></div>`;
             return;
         }
+        window._availableAppointments = appointments;
         const consultationByAppointment = new Map(consultations.map(item => [String(item.appointment), item]));
         target.innerHTML = appointments.map(item => {
             const existing = consultationByAppointment.get(String(item.appointment_id));
-            const action = existing
-                ? `<button class="secondary-btn" onclick="openExistingConsultation(${existing.consultation_id})">Open Consultation</button>`
-                : `<button class="primary-btn" onclick="startAppointmentConsultation(${item.appointment_id})">Start Consultation</button>`;
-            return `<div class="consultation-row"><div class="consultation-patient"><div class="patient-info"><h3>${escapeHtml(item.patient_name || "Patient")}</h3><span>Patient ID: ${escapeHtml(item.patient)} · Token: ${escapeHtml(item.token_number)}</span></div></div><div class="consultation-column"><span class="column-label">Appointment</span><strong>#${item.appointment_id}</strong></div><div class="consultation-column"><span class="column-label">Time</span><strong>${escapeHtml(item.appointment_time)}</strong></div>${action}</div>`;
+            const isPaid = (item.payment_status || "").toLowerCase() === "paid";
+            const paymentBadge = isPaid
+                ? `<span class="status-badge status-paid" style="margin-left: 8px;">Paid</span>`
+                : `<span class="status-badge status-pending" style="margin-left: 8px;" title="Payment Pending: Patient must complete payment at reception first.">Payment Pending</span>`;
+
+            let action = "";
+            if (existing) {
+                action = `<button class="secondary-btn" onclick="openExistingConsultation(${existing.consultation_id})">Open Consultation</button>`;
+            } else if (!isPaid) {
+                action = `<button class="secondary-btn disabled" disabled title="Payment is pending. Doctor access will be available after payment is completed.">Locked</button>`;
+            } else {
+                action = `<button class="primary-btn" onclick="startAppointmentConsultation(${item.appointment_id})">Start Consultation</button>`;
+            }
+            return `<div class="consultation-row"><div class="consultation-patient"><div class="patient-info"><h3>${escapeHtml(item.patient_name || "Patient")}${paymentBadge}</h3><span>Patient ID: ${escapeHtml(item.patient)} · Token: ${escapeHtml(item.token_number)}</span></div></div><div class="consultation-column"><span class="column-label">Appointment</span><strong>#${item.appointment_id}</strong></div><div class="consultation-column"><span class="column-label">Time</span><strong>${escapeHtml(item.appointment_time)}</strong></div>${action}</div>`;
         }).join("");
     } catch (error) {
         console.error("Available appointments error:", error);
@@ -151,6 +162,11 @@ async function loadAvailableAppointments() {
 
 function startAppointmentConsultation(id) {
     if (!id) return;
+    const appt = window._availableAppointments?.find(a => String(a.appointment_id) === String(id));
+    if (appt && (appt.payment_status || "").toLowerCase() !== "paid") {
+        showError("Payment is pending. Doctor access will be available after payment is completed.");
+        return;
+    }
     localStorage.setItem("current_appointment_id", String(id));
     window.location.href = `consultation.html?appointment_id=${encodeURIComponent(id)}`;
 }
@@ -304,8 +320,9 @@ async function loadPatientInfo() {
                 await response.json();
 
             showError(
+                data.detail ||
                 data.error ||
-                "Payment has not been completed."
+                "Payment is pending. Doctor access will be available after payment is completed."
             );
 
             return;

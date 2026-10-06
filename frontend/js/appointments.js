@@ -1,25 +1,17 @@
 /**
- * CLINIC MANAGEMENT SYSTEM - UNIFIED APPOINTMENTS MODULE
- * Section 1: MEDICARE Receptionist Appointments
- * Section 2: ClinixOne Admin Appointments
+ * CLINIC MANAGEMENT SYSTEM - APPOINTMENTS MODULE
+ * Handles appointment listing with multi-field filtering,
+ * dynamic booking modal (patient, department, doctor chaining),
+ * quick payment recording, and cancellation.
  */
 
-// =========================================================
-// SECTION 1: MEDICARE RECEPTIONIST APPOINTMENTS
-// =========================================================
-(function initReceptionistAppointmentsModule() {
-  let bookAppointmentModal = null;
-  let recordPaymentModal = null;
-  let activePaymentAppointmentId = null;
-  let activePaymentBalance = 0;
+let bookAppointmentModal = null;
+let recordPaymentModal = null;
+let activePaymentAppointmentId = null;
+let activePaymentBalance = 0;
 
-  document.addEventListener("DOMContentLoaded", () => {
-    const isReceptionistApptPage =
-      document.getElementById("bookAppointmentModal") ||
-      document.getElementById("appointments-filter-form");
-    if (!isReceptionistApptPage) return;
-
-    if (typeof checkAuth === "function" && !checkAuth(true)) return;
+document.addEventListener("DOMContentLoaded", () => {
+  if (!checkAuth(true)) return;
 
   const bookModalEl = document.getElementById("bookAppointmentModal");
   if (bookModalEl) {
@@ -126,6 +118,7 @@ async function loadAppointments() {
   const docVal = document.getElementById("filter-doctor")?.value;
   const deptVal = document.getElementById("filter-department")?.value;
   const statusVal = document.getElementById("filter-status")?.value;
+  const typeVal = document.getElementById("filter-type")?.value;
   const searchVal = document.getElementById("filter-search")?.value.trim();
 
   const queryParams = new URLSearchParams();
@@ -133,6 +126,7 @@ async function loadAppointments() {
   if (docVal) queryParams.append("doctor", docVal);
   if (deptVal) queryParams.append("department", deptVal);
   if (statusVal) queryParams.append("status", statusVal);
+  if (typeVal) queryParams.append("appointment_type", typeVal);
   if (searchVal) queryParams.append("search", searchVal);
 
   const endpoint = `/appointments/${queryParams.toString() ? "?" + queryParams.toString() : ""}`;
@@ -166,10 +160,15 @@ function renderAppointmentsTable(appointments, tbody) {
     const tr = document.createElement("tr");
     const isCancelled = (apt.status || "").toLowerCase() === "cancelled";
     const isPaid = (apt.payment_status || "").toLowerCase() === "paid";
+    const isWalkIn = (apt.appointment_type || "").toLowerCase() === "walk_in";
+    const typeBadge = isWalkIn
+      ? `<span class="badge" style="background-color: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0;"><i class="bi bi-person-walking me-1"></i>Walk-In</span>`
+      : `<span class="badge" style="background-color: #f0f9ff; color: #0284c7; border: 1px solid #bae6fd;"><i class="bi bi-calendar2-event me-1"></i>Pre-Booking</span>`;
 
     tr.innerHTML = `
       <td class="fw-bold text-dark">#${escapeHtml(apt.appointment_id)}</td>
       <td class="fw-bold text-primary">#${escapeHtml(apt.token_number || "-")}</td>
+      <td>${typeBadge}</td>
       <td>
         <div class="fw-semibold text-dark">${escapeHtml(apt.patient_name || "Patient #" + apt.patient)}</div>
         <small class="text-muted"><a href="patient-details.html?id=${apt.patient}" class="text-decoration-none">ID: #${apt.patient}</a></small>
@@ -228,18 +227,119 @@ function renderAppointmentsTable(appointments, tbody) {
 
 /**
  * Initialize Booking Modal dynamic cascading dropdowns
+/**
+ * Local date helper to produce YYYY-MM-DD based on browser's local timezone
+ */
+function getLocalDateString(dateObj = new Date()) {
+  const year = dateObj.getFullYear();
+  const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const day = String(dateObj.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Local time helper to produce HH:MM based on browser's local time
+ */
+function getLocalCurrentTimeHHMM() {
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+/**
+ * Initialize Booking Modal components and dynamic type switching
  */
 async function initBookingModal() {
   const deptSelect = document.getElementById("book-department");
   const docSelect = document.getElementById("book-doctor");
   const dateInput = document.getElementById("book-date");
+  const timeInput = document.getElementById("book-time");
+  const timeHint = document.getElementById("book-time-hint");
+  const hint = document.getElementById("book-type-hint");
+  const feeBadge = document.getElementById("book-consultation-fee-badge");
+  const hoursBadge = document.getElementById("book-doctor-hours-badge");
 
-  // Min appointment date = today
-  if (dateInput) {
-    const todayStr = new Date().toISOString().split("T")[0];
-    dateInput.setAttribute("min", todayStr);
-    dateInput.value = todayStr;
+  function updateTimeInputConstraints() {
+    if (!timeInput) return;
+    const isWalkIn = document.getElementById("type-walk-in")?.checked;
+    const selected = docSelect && docSelect.selectedIndex >= 0 ? docSelect.options[docSelect.selectedIndex] : null;
+    const hasDoc = selected && selected.value;
+    const docStart = selected?.dataset?.startTime || "08:00";
+    const docEnd = selected?.dataset?.endTime || "20:00";
+    const docHoursDisplay = selected?.dataset?.hoursDisplay || "08:00 AM - 08:00 PM";
+    const currentHHMM = getLocalCurrentTimeHHMM();
+
+    if (timeHint) {
+      if (hasDoc) {
+        timeHint.innerHTML = `<i class="bi bi-clock me-1 text-primary"></i>Working Hours: <strong>${docHoursDisplay}</strong>`;
+      } else {
+        timeHint.textContent = "";
+      }
+    }
+
+    if (isWalkIn) {
+      // Walk-In: must be >= current time AND >= docStart, and <= docEnd
+      const minTime = (hasDoc && currentHHMM < docStart) ? docStart : currentHHMM;
+      timeInput.min = minTime;
+      timeInput.max = docEnd;
+      if (!timeInput.value || timeInput.value < minTime || timeInput.value > docEnd) {
+        timeInput.value = minTime;
+      }
+    } else {
+      // Pre-Booking: must be >= docStart and <= docEnd
+      timeInput.min = docStart;
+      timeInput.max = docEnd;
+      if (!timeInput.value || timeInput.value < docStart || timeInput.value > docEnd) {
+        timeInput.value = docStart;
+      }
+    }
   }
+
+  function updateBookingTypeUI() {
+    const isWalkIn = document.getElementById("type-walk-in")?.checked;
+    const now = new Date();
+    const todayStr = getLocalDateString(now);
+
+    if (isWalkIn) {
+      if (dateInput) {
+        dateInput.value = todayStr;
+        dateInput.min = todayStr;
+        dateInput.max = todayStr;
+        dateInput.readOnly = true;
+        dateInput.disabled = true;
+        dateInput.classList.add("bg-light");
+      }
+      if (hint) {
+        hint.innerHTML = `<i class="bi bi-info-circle me-1 text-primary"></i><strong>Walk-In appointments are available for today only.</strong>`;
+      }
+    } else {
+      const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      const maxDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 10);
+      const tomorrowStr = getLocalDateString(tomorrow);
+      const maxDateStr = getLocalDateString(maxDate);
+
+      if (dateInput) {
+        dateInput.disabled = false;
+        dateInput.readOnly = false;
+        dateInput.min = tomorrowStr;
+        dateInput.max = maxDateStr;
+        dateInput.classList.remove("bg-light");
+        if (!dateInput.value || dateInput.value < tomorrowStr || dateInput.value > maxDateStr) {
+          dateInput.value = tomorrowStr;
+        }
+      }
+      if (hint) {
+        hint.innerHTML = `<i class="bi bi-info-circle me-1"></i>Pre-Booking is available from tomorrow up to 10 days in advance.`;
+      }
+    }
+    updateTimeInputConstraints();
+  }
+
+  document.querySelectorAll('input[name="book-appointment-type"]').forEach((radio) => {
+    radio.addEventListener("change", updateBookingTypeUI);
+  });
+  updateBookingTypeUI();
 
   // Load Departments
   try {
@@ -263,7 +363,9 @@ async function initBookingModal() {
       const deptId = deptSelect.value;
       docSelect.disabled = true;
       docSelect.innerHTML = `<option value="" disabled selected>Loading doctors...</option>`;
-      document.getElementById("book-consultation-fee-badge").classList.add("d-none");
+      if (feeBadge) feeBadge.classList.add("d-none");
+      if (hoursBadge) hoursBadge.classList.add("d-none");
+      if (timeHint) timeHint.textContent = "";
 
       try {
         const doctors = await apiGet(`/doctors/?department=${deptId}`);
@@ -273,6 +375,10 @@ async function initBookingModal() {
             const opt = document.createElement("option");
             opt.value = doc.doctor_id;
             opt.dataset.fee = doc.consultation_fee;
+            opt.dataset.doctorName = doc.doctor_name || "";
+            opt.dataset.startTime = doc.working_hours_start || "08:00";
+            opt.dataset.endTime = doc.working_hours_end || "20:00";
+            opt.dataset.hoursDisplay = doc.working_hours_display || "08:00 AM - 08:00 PM";
             opt.textContent = `${doc.doctor_name} (Fee: ₹${doc.consultation_fee})`;
             docSelect.appendChild(opt);
           });
@@ -287,16 +393,23 @@ async function initBookingModal() {
     });
   }
 
-  // When Doctor is selected, update fee display badge
+  // When Doctor is selected, update fee and hours display badges
   if (docSelect) {
     docSelect.addEventListener("change", () => {
       const selected = docSelect.options[docSelect.selectedIndex];
       const fee = selected?.dataset?.fee;
-      const feeBadge = document.getElementById("book-consultation-fee-badge");
       if (fee && feeBadge) {
         feeBadge.textContent = `Consultation Fee: ₹${fee}`;
         feeBadge.classList.remove("d-none");
       }
+      const hoursDisplay = selected?.dataset?.hoursDisplay;
+      if (hoursDisplay && hoursBadge) {
+        hoursBadge.innerHTML = `<i class="bi bi-clock me-1"></i>Hours: ${hoursDisplay}`;
+        hoursBadge.classList.remove("d-none");
+      } else if (hoursBadge) {
+        hoursBadge.classList.add("d-none");
+      }
+      updateTimeInputConstraints();
     });
   }
 
@@ -393,6 +506,7 @@ async function openBookingModal(prefillPatientId) {
       console.warn("Could not prefill patient:", e);
     }
   }
+  if (typeof updateBookingTypeUI === "function") updateBookingTypeUI();
   if (bookAppointmentModal) bookAppointmentModal.show();
 }
 
@@ -437,12 +551,80 @@ async function handleBookAppointmentSubmit(e) {
     appointmentTime += ":00";
   }
 
+  const appointmentType = document.querySelector('input[name="book-appointment-type"]:checked')?.value || "pre_booking";
+  const now = new Date();
+  const todayStr = getLocalDateString(now);
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const maxDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 10);
+  const tomorrowStr = getLocalDateString(tomorrow);
+  const maxDateStr = getLocalDateString(maxDate);
+  const currentHHMM = getLocalCurrentTimeHHMM();
+
+  const finalAppointmentDate = (appointmentType === "walk_in") ? todayStr : appointmentDate;
+
+  // Retrieve selected doctor's working hours
+  const docSelectEl = document.getElementById("book-doctor");
+  const selectedDocOpt = docSelectEl && docSelectEl.selectedIndex >= 0 ? docSelectEl.options[docSelectEl.selectedIndex] : null;
+  const docStartTime = selectedDocOpt?.dataset?.startTime;
+  const docEndTime = selectedDocOpt?.dataset?.endTime;
+  const docHoursDisplay = selectedDocOpt?.dataset?.hoursDisplay || "08:00 AM - 08:00 PM";
+  let docDisplayName = selectedDocOpt?.dataset?.doctorName || "the doctor";
+  if (!docDisplayName.toLowerCase().startsWith("dr.") && !docDisplayName.toLowerCase().startsWith("dr ")) {
+    docDisplayName = `Dr. ${docDisplayName}`;
+  }
+
+  const enteredTimeHHMM = appointmentTime.slice(0, 5);
+
+  // Validate against Doctor's configured working hours (inclusive)
+  if (docStartTime && docEndTime) {
+    if (enteredTimeHHMM < docStartTime || enteredTimeHHMM > docEndTime) {
+      if (errorBox) {
+        errorBox.textContent = `Appointment time must be within ${docDisplayName}'s working hours (${docHoursDisplay}).`;
+        errorBox.classList.remove("d-none");
+      }
+      return;
+    }
+  }
+
+  if (appointmentType === "walk_in") {
+    if (finalAppointmentDate !== todayStr) {
+      if (errorBox) {
+        errorBox.textContent = "Walk-In appointments can only be booked for today.";
+        errorBox.classList.remove("d-none");
+      }
+      return;
+    }
+    if (enteredTimeHHMM < currentHHMM) {
+      if (errorBox) {
+        errorBox.textContent = "Walk-In appointment time cannot be in the past.";
+        errorBox.classList.remove("d-none");
+      }
+      return;
+    }
+  } else if (appointmentType === "pre_booking") {
+    if (finalAppointmentDate === todayStr || finalAppointmentDate < tomorrowStr) {
+      if (errorBox) {
+        errorBox.textContent = "Pre-Booking is only available from tomorrow onwards. Please use Walk-In for today's appointments.";
+        errorBox.classList.remove("d-none");
+      }
+      return;
+    }
+    if (finalAppointmentDate > maxDateStr) {
+      if (errorBox) {
+        errorBox.textContent = "Pre-Booking appointments can only be made up to 10 days in advance.";
+        errorBox.classList.remove("d-none");
+      }
+      return;
+    }
+  }
+
   const payload = {
     patient_id: parseInt(patientId, 10),
     department_id: parseInt(departmentId, 10),
     doctor_id: parseInt(doctorId, 10),
-    appointment_date: appointmentDate,
+    appointment_date: finalAppointmentDate,
     appointment_time: appointmentTime,
+    appointment_type: appointmentType,
     reason: reason,
   };
 
@@ -459,6 +641,7 @@ async function handleBookAppointmentSubmit(e) {
     if (bookAppointmentModal) bookAppointmentModal.hide();
     document.getElementById("book-appointment-form").reset();
     clearSelectedPatientForBooking();
+    if (typeof updateBookingTypeUI === "function") updateBookingTypeUI();
 
     // Reload appointments
     loadAppointments();
@@ -587,7 +770,6 @@ async function handleQuickPaymentSubmit(e) {
     setButtonLoading(submitBtn, false);
   }
 }
-})();
 
 // =========================================================
 // SECTION 2: CLINIXONE ADMIN APPOINTMENTS
@@ -645,7 +827,7 @@ function populateDoctorDropdown() {
     if (!select) return;
     select.innerHTML = `<option value="">Select doctor...</option>`;
     allDoctors.forEach(d => {
-        select.innerHTML += `<option value="${d.doctor_id}">${escapeHtml(d.doctor_name)} (${escapeHtml(d.department_name)})</option>`;
+        select.innerHTML += `<option value="${d.doctor_id}">Dr. ${escapeHtml(d.full_name)} (${escapeHtml(d.specialization)})</option>`;
     });
 }
 

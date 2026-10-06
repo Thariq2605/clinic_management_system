@@ -67,6 +67,21 @@
     addForm.addEventListener("submit", handleAddPatientSubmit);
   }
 
+  // Restrict mobile and emergency contact inputs to exactly 10 digits
+  const mobileInput = document.getElementById("patient-mobile");
+  if (mobileInput) {
+    mobileInput.addEventListener("input", (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+    });
+  }
+
+  const emergencyInput = document.getElementById("patient-emergency");
+  if (emergencyInput) {
+    emergencyInput.addEventListener("input", (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+    });
+  }
+
   // Restrict DOB input maximum date to today
   const dobInput = document.getElementById("patient-dob");
   if (dobInput) {
@@ -180,23 +195,97 @@ async function handleAddPatientSubmit(e) {
     emergency_contact: document.getElementById("patient-emergency").value.trim(),
   };
 
-  // Client-side validations
-  if (!payload.full_name || !payload.dob || !payload.gender || !payload.mobile_number || !payload.email || !payload.address || !payload.blood_group || !payload.emergency_contact) {
+  // Full Name validation
+  const nameRegex = /^[a-zA-Z\s\.\'\-]+$/;
+  if (!payload.full_name || payload.full_name.length < 2 || !nameRegex.test(payload.full_name) || !/[a-zA-Z]/.test(payload.full_name)) {
     if (errorBox) {
-      errorBox.textContent = "Please fill in all required patient fields.";
+      errorBox.textContent = "Please enter a valid patient name.";
       errorBox.classList.remove("d-none");
     }
+    document.getElementById("patient-fullname").focus();
     return;
   }
 
-  // Validate DOB not in future
-  const dobDate = new Date(payload.dob);
-  const now = new Date();
-  if (dobDate >= now) {
+  // Gender validation
+  if (!payload.gender || !["Male", "Female", "Other"].includes(payload.gender)) {
     if (errorBox) {
-      errorBox.textContent = "Date of birth must be in the past.";
+      errorBox.textContent = "Please select a valid gender.";
       errorBox.classList.remove("d-none");
     }
+    document.getElementById("patient-gender").focus();
+    return;
+  }
+
+  // Blood group validation
+  const validBloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+  if (!payload.blood_group || !validBloodGroups.includes(payload.blood_group)) {
+    if (errorBox) {
+      errorBox.textContent = "Please select a valid blood group.";
+      errorBox.classList.remove("d-none");
+    }
+    document.getElementById("patient-bloodgroup").focus();
+    return;
+  }
+
+  // DOB validation: not in future
+  if (!payload.dob) {
+    if (errorBox) {
+      errorBox.textContent = "Please select date of birth.";
+      errorBox.classList.remove("d-none");
+    }
+    document.getElementById("patient-dob").focus();
+    return;
+  }
+  const dobDate = new Date(payload.dob);
+  const now = new Date();
+  now.setHours(23, 59, 59, 999);
+  if (dobDate > now) {
+    if (errorBox) {
+      errorBox.textContent = "Date of birth cannot be in the future.";
+      errorBox.classList.remove("d-none");
+    }
+    document.getElementById("patient-dob").focus();
+    return;
+  }
+
+  // Mobile number: exactly 10 digits
+  if (!/^[0-9]{10}$/.test(payload.mobile_number)) {
+    if (errorBox) {
+      errorBox.textContent = "Phone number must contain exactly 10 digits.";
+      errorBox.classList.remove("d-none");
+    }
+    document.getElementById("patient-mobile").focus();
+    return;
+  }
+
+  // Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!payload.email || !emailRegex.test(payload.email)) {
+    if (errorBox) {
+      errorBox.textContent = "Please enter a valid email address.";
+      errorBox.classList.remove("d-none");
+    }
+    document.getElementById("patient-email").focus();
+    return;
+  }
+
+  // Emergency contact: exactly 10 digits
+  if (!/^[0-9]{10}$/.test(payload.emergency_contact)) {
+    if (errorBox) {
+      errorBox.textContent = "Emergency contact must contain exactly 10 digits.";
+      errorBox.classList.remove("d-none");
+    }
+    document.getElementById("patient-emergency").focus();
+    return;
+  }
+
+  // Residential address: cannot be empty or only spaces
+  if (!payload.address) {
+    if (errorBox) {
+      errorBox.textContent = "Please enter a valid residential address.";
+      errorBox.classList.remove("d-none");
+    }
+    document.getElementById("patient-address").focus();
     return;
   }
 
@@ -384,6 +473,26 @@ function setupPatientEvents() {
         });
     }
 
+    // Restrict mobile and emergency contact inputs to numbers and 10 digits
+    const patMobileInput = document.getElementById("patMobile");
+    if (patMobileInput) {
+        patMobileInput.addEventListener("input", function (e) {
+            e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+        });
+    }
+
+    const patEmergencyInput = document.getElementById("patEmergencyContact");
+    if (patEmergencyInput) {
+        patEmergencyInput.addEventListener("input", function (e) {
+            e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+        });
+    }
+
+    const patDobInput = document.getElementById("patDob");
+    if (patDobInput) {
+        patDobInput.setAttribute("max", new Date().toISOString().split("T")[0]);
+    }
+
     if (patientForm) {
         patientForm.addEventListener("submit", async function (e) {
             e.preventDefault();
@@ -403,8 +512,55 @@ function setupPatientEvents() {
             const emergencyContact = document.getElementById("patEmergencyContact").value.trim();
             const isActive = document.getElementById("patActive").checked;
 
-            if (!fullName || !dob || !gender || !mobile) {
-                errorEl.textContent = "Please fill in all mandatory fields.";
+            const nameRegex = /^[a-zA-Z\s\.\'\-]+$/;
+            if (!fullName || fullName.length < 2 || !nameRegex.test(fullName) || !/[a-zA-Z]/.test(fullName)) {
+                errorEl.textContent = "Please enter a valid patient name.";
+                errorEl.classList.add("active");
+                return;
+            }
+
+            if (!dob) {
+                errorEl.textContent = "Date of birth is required.";
+                errorEl.classList.add("active");
+                return;
+            }
+            const dobDate = new Date(dob);
+            const today = new Date();
+            today.setHours(23, 59, 59, 999);
+            if (dobDate > today) {
+                errorEl.textContent = "Date of birth cannot be in the future.";
+                errorEl.classList.add("active");
+                return;
+            }
+
+            if (!gender || !["Male", "Female", "Other"].includes(gender)) {
+                errorEl.textContent = "Please select a valid gender.";
+                errorEl.classList.add("active");
+                return;
+            }
+
+            const validBloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+            if (bloodGroup && !validBloodGroups.includes(bloodGroup)) {
+                errorEl.textContent = "Please select a valid blood group.";
+                errorEl.classList.add("active");
+                return;
+            }
+
+            if (!/^[0-9]{10}$/.test(mobile)) {
+                errorEl.textContent = "Phone number must contain exactly 10 digits.";
+                errorEl.classList.add("active");
+                return;
+            }
+
+            if (emergencyContact && !/^[0-9]{10}$/.test(emergencyContact)) {
+                errorEl.textContent = "Emergency contact must contain exactly 10 digits.";
+                errorEl.classList.add("active");
+                return;
+            }
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (email && !emailRegex.test(email)) {
+                errorEl.textContent = "Please enter a valid email address.";
                 errorEl.classList.add("active");
                 return;
             }

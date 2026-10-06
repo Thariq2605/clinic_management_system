@@ -520,8 +520,8 @@ function createPaymentBadge(payment) {
 
 
     return `
-        <span class="status-badge status-pending">
-            Pending
+        <span class="status-badge status-pending" title="Payment Pending: Patient must complete payment at reception first.">
+            Payment Pending
         </span>
     `;
 }
@@ -598,17 +598,29 @@ function createActionButtons(appointment) {
         appointment.appointment_id ||
         appointment.id;
 
+    const isPaid = (appointment.payment_status || appointment.payment || "").toLowerCase() === "paid";
 
-    const status =
-        String(
-            appointment.status || ""
-        ).toLowerCase();
+    if (!isPaid) {
+        return `
+            <button
+                class="table-action disabled"
+                disabled
+                title="Payment is pending. Doctor access will be available after payment is completed."
+            >
+                Locked
+            </button>
+        `;
+    }
 
     if (appointment.consultation_id) {
         return `<button class="table-action" onclick="viewPatient(${appointmentId})">View</button>
             <button class="table-action primary" onclick="openExistingConsultation(${appointment.consultation_id})">Open</button>`;
     }
 
+    const status =
+        String(
+            appointment.status || ""
+        ).toLowerCase();
 
     let startButton = "";
 
