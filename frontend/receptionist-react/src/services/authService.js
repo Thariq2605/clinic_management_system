@@ -5,6 +5,14 @@ export const getStoredUser = () => {
   try { return JSON.parse(sessionStorage.getItem(USER_KEY) || 'null'); } catch { return null; }
 };
 
+// Validate the Django session before using any browser-stored identity. The
+// departments endpoint is read-only and protected by receptionist session and
+// role permissions, so a successful response proves authorization server-side.
+export async function validateSession() {
+  await receptionistApi.get('/departments/');
+  return getStoredUser() || { name: 'Receptionist' };
+}
+
 export async function login(username, password) {
   await getCsrfToken();
   const user = await receptionistApi.post('/login/', { username, password });
