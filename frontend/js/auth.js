@@ -38,7 +38,7 @@ function checkAuth(requireAuth = true) {
       return true;
     }
     if (doctorToken && doctorId) {
-      window.location.href = "doctor/dashboard.html";
+      window.location.href = "react frontend/";
       return true;
     }
     if (pharmacistUser) {
@@ -138,7 +138,7 @@ async function handleLogin(username, password, submitBtn, errorBox) {
       showToast("Doctor login successful! Redirecting...", "success");
 
       setTimeout(() => {
-        window.location.href = response.redirect || "doctor/dashboard.html";
+        window.location.href = "react frontend/";
       }, 400);
 
     } else if (role === "pharmacist") {
