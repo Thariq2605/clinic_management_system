@@ -7,6 +7,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from core.models import Appointment, Bill, Department, Doctor, Patient, Payment
+from core.services import appointment_queue_eligible
 
 VALID_GENDERS = ["Male", "Female", "Other"]
 VALID_BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
@@ -294,18 +295,22 @@ class AppointmentSerializer(serializers.ModelSerializer):
     department_id = serializers.IntegerField(source="doctor.department_id", read_only=True)
     department_name = serializers.CharField(source="doctor.department.department_name", read_only=True)
     consultation_fee = serializers.SerializerMethodField()
+    queue_eligible = serializers.SerializerMethodField()
 
     class Meta:
         model = Appointment
         fields = ("appointment_id", "patient", "patient_name", "doctor", "doctor_name",
                   "department_id", "department_name", "appointment_date", "appointment_time",
                   "appointment_type", "token_number", "consultation_fee", "reason", "status",
-                  "payment_status", "is_active")
+                  "payment_status", "queue_eligible", "is_active")
         read_only_fields = fields
 
     def get_consultation_fee(self, appointment):
         bill = appointment.bill_set.filter(is_active=True).order_by("-bill_id").first()
         return str(bill.total_amount if bill else appointment.doctor.consultation_fee)
+
+    def get_queue_eligible(self, appointment):
+        return appointment_queue_eligible(appointment)
 
 
 class AppointmentDetailSerializer(serializers.ModelSerializer):
@@ -322,6 +327,7 @@ class AppointmentDetailSerializer(serializers.ModelSerializer):
     receptionist_name = serializers.CharField(source="receptionist.staff.full_name", read_only=True)
     consultation_fee = serializers.SerializerMethodField()
     billing_details = serializers.SerializerMethodField()
+    queue_eligible = serializers.SerializerMethodField()
 
     class Meta:
         model = Appointment
@@ -331,7 +337,7 @@ class AppointmentDetailSerializer(serializers.ModelSerializer):
             "doctor_name", "doctor_qualification", "department_id", "department_name",
             "receptionist_name", "appointment_date", "appointment_time", "appointment_type",
             "token_number", "consultation_fee", "reason", "status", "payment_status",
-            "billing_details", "created_at", "is_active"
+            "billing_details", "queue_eligible", "created_at", "is_active"
         )
         read_only_fields = fields
 
@@ -352,6 +358,9 @@ class AppointmentDetailSerializer(serializers.ModelSerializer):
             "bill_date": str(bill.bill_date),
             "bill_payment_status": bill.payment_status,
         }
+
+    def get_queue_eligible(self, appointment):
+        return appointment_queue_eligible(appointment)
 
 
 class PaymentInputSerializer(serializers.ModelSerializer):
@@ -419,6 +428,7 @@ class BillSerializer(serializers.ModelSerializer):
     token_number = serializers.CharField(source="appointment.token_number", read_only=True)
     appointment_status = serializers.CharField(source="appointment.status", read_only=True)
     payments = serializers.SerializerMethodField()
+    queue_eligible = serializers.SerializerMethodField()
 
     class Meta:
         model = Bill
@@ -427,7 +437,7 @@ class BillSerializer(serializers.ModelSerializer):
             "appointment_id", "doctor_id", "doctor_name", "department_name",
             "bill_type", "bill_date", "total_amount", "paid_amount",
             "outstanding_balance", "payment_status", "token_number",
-            "appointment_status", "payments", "is_active"
+            "appointment_status", "queue_eligible", "payments", "is_active"
         )
         read_only_fields = fields
 
@@ -450,6 +460,9 @@ class BillSerializer(serializers.ModelSerializer):
         payments = bill.payment_set.filter(is_active=True).order_by("-payment_date")
         return PaymentHistorySerializer(payments, many=True).data
 
+    def get_queue_eligible(self, bill):
+        return appointment_queue_eligible(bill.appointment) if bill.appointment_id else False
+
 
 class TokenQueueAppointmentSerializer(serializers.ModelSerializer):
     patient_id = serializers.IntegerField(source="patient.patient_id", read_only=True)
@@ -460,6 +473,7 @@ class TokenQueueAppointmentSerializer(serializers.ModelSerializer):
     department_name = serializers.CharField(source="doctor.department.department_name", read_only=True)
     queue_status = serializers.SerializerMethodField()
     token_display = serializers.SerializerMethodField()
+    queue_eligible = serializers.SerializerMethodField()
 
     class Meta:
         model = Appointment
@@ -468,7 +482,7 @@ class TokenQueueAppointmentSerializer(serializers.ModelSerializer):
             "patient_name", "patient_gender", "doctor_id", "doctor_name",
             "department_name", "appointment_date", "appointment_time",
             "appointment_type", "reason", "status", "queue_status",
-            "payment_status", "created_at"
+            "payment_status", "queue_eligible", "created_at"
         )
         read_only_fields = fields
 
@@ -486,3 +500,6 @@ class TokenQueueAppointmentSerializer(serializers.ModelSerializer):
             return f"{int(appointment.token_number):03d}"
         except (ValueError, TypeError):
             return str(appointment.token_number)
+
+    def get_queue_eligible(self, appointment):
+        return appointment_queue_eligible(appointment)

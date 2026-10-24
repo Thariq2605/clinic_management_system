@@ -2,6 +2,7 @@ from datetime import date, timedelta
 
 from django.contrib.auth.hashers import check_password
 from django.utils import timezone
+from django.db import transaction
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -21,6 +22,7 @@ from core.models import (
     Medicine,
     LabTest,
 )
+from core.services import appointment_payment_completed
 
 from .serializer import (
     AppointmentSerializer,
@@ -35,8 +37,7 @@ from .serializer import (
 )
 
 from doctorapp.permission import IsDoctor
-from decimal import Decimal
-from django.db.models import Q, Sum
+from django.db.models import Q
 
 
 def is_appointment_payment_completed(appointment):
@@ -48,21 +49,7 @@ def is_appointment_payment_completed(appointment):
     3. bill.payment_status == 'paid'
     4. Outstanding balance is 0 (bill.total_amount - paid <= 0)
     """
-    if not appointment:
-        return False, "Appointment not found."
-
-    if str(appointment.payment_status).strip().capitalize() != "Paid":
-        return False, "Payment is pending. Doctor access will be available after payment is completed."
-
-    bill = appointment.bill_set.filter(is_active=True).first()
-    if not bill:
-        return False, "Active bill was not found. Please contact Receptionist."
-
-    if str(bill.payment_status).strip().lower() != "paid":
-        return False, "Payment is pending. Doctor access will be available after payment is completed."
-
-    paid = bill.payment_set.filter(is_active=True).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
-    if bill.total_amount - paid > Decimal("0.00"):
+    if not appointment_payment_completed(appointment):
         return False, "Payment is pending. Doctor access will be available after payment is completed."
 
     return True, None
@@ -107,6 +94,8 @@ def doctor_appointments(request, doctor_id):
         appointment_date=date.today(),
         is_active=True
     ).select_related('patient').order_by('appointment_time')
+
+    appointments = [a for a in appointments if appointment_payment_completed(a)]
 
     serializer = AppointmentSerializer(
         appointments,
@@ -384,57 +373,35 @@ def create_consultation(request, doctor_id, appointment_id):
         )
 
     # Find appointment belonging to this doctor
-    try:
-        appointment = Appointment.objects.select_related(
-            'patient',
-            'doctor'
-        ).get(
-            appointment_id=appointment_id,
-            doctor=doctor,
-            is_active=True
-        )
+    serializer = ConsultationSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    with transaction.atomic():
+        try:
+            appointment = Appointment.objects.select_for_update().select_related(
+                'patient', 'doctor'
+            ).get(appointment_id=appointment_id, doctor=doctor, is_active=True)
+        except Appointment.DoesNotExist:
+            return Response({"error": "Appointment not found."}, status=404)
 
-    except Appointment.DoesNotExist:
-        return Response(
-            {
-                "error": "Appointment not found."
-            },
-            status=404
-        )
+        if appointment.status == "cancelled":
+            return Response({"error": "Cancelled appointments cannot start a consultation."}, status=409)
 
-    # Check payment status
-    is_paid, error_msg = is_appointment_payment_completed(appointment)
-    if not is_paid:
-        return Response(
-            {
+        is_paid, _ = is_appointment_payment_completed(appointment)
+        if not is_paid:
+            return Response({
                 "error": "Payment is not completed. Please contact the Receptionist.",
                 "detail": "Payment is pending. Doctor access will be available after payment is completed."
-            },
-            status=403
-        )
-
-    # Create consultation
-    serializer = ConsultationSerializer(
-        data=request.data
-    )
-
-    if serializer.is_valid():
+            }, status=403)
+        if Consultation.objects.filter(appointment=appointment, is_active=True).exists():
+            return Response({"error": "A consultation already exists for this appointment."}, status=409)
 
         consultation = serializer.save(
             appointment=appointment,
             doctor=appointment.doctor,
-            consultation_date=date.today()
+            consultation_date=date.today(),
+            is_active=True,
         )
-
-        return Response(
-            ConsultationSerializer(consultation).data,
-            status=201
-        )
-
-    return Response(
-        serializer.errors,
-        status=400
-    )
+    return Response(ConsultationSerializer(consultation).data, status=201)
 
 
 @api_view(['POST'])

@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 from decimal import Decimal
 
 from django.test import TestCase, override_settings
@@ -503,6 +503,7 @@ class ReceptionistAPITests(TestCase):
         resp = self.client.post("/api/receptionist/appointments/", data)
         self.assertEqual(resp.status_code, 400)
 
+    @override_settings(DOCTOR_WORKING_HOURS={1: (time(0, 0), time(23, 59))})
     def test_31_walk_in_today_accepted(self):
         patient = self.make_patient()
         today = timezone.localdate().isoformat()
@@ -528,6 +529,7 @@ class ReceptionistAPITests(TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("Walk-In appointment time cannot be in the past", str(resp.data))
 
+    @override_settings(DOCTOR_WORKING_HOURS={1: (time(0, 0), time(23, 59))})
     def test_walk_in_today_current_time_accepted(self):
         patient = self.make_patient()
         today = timezone.localdate().isoformat()
@@ -789,35 +791,90 @@ class ReceptionistAPITests(TestCase):
         })
         self.assertEqual(res_already_paid.status_code, 400)
 
-    def test_token_queue_workflow(self):
+    def test_queue_eligibility_is_payment_gated_for_both_appointment_types(self):
         today = timezone.localdate()
         now = timezone.localtime()
-        if now.hour == 23 and now.minute > 50:
-            future_time = now.strftime("%H:%M:%S")
-            future_time2 = "23:59:59"
-        else:
-            future_time = (now + timedelta(minutes=2)).strftime("%H:%M:%S")
-            future_time2 = (now + timedelta(minutes=5)).strftime("%H:%M:%S")
+        appointments = []
+        for index, appointment_type in enumerate(("walk_in", "pre_booking"), start=1):
+            patient = self.make_patient(
+                full_name=f"Queue Gate {appointment_type}",
+                mobile_number=f"98765001{index:02d}",
+                email=f"queuegate{index}@example.com",
+            )
+            appointment = Appointment.objects.create(
+                patient=patient, doctor=self.doctor, receptionist=self.receptionist,
+                appointment_date=today, appointment_time=f"10:0{index}:00",
+                token_number=str(index), reason="Queue eligibility test", status="scheduled",
+                payment_status="Pending", appointment_type=appointment_type,
+                created_at=timezone.now(),
+            )
+            bill = Bill.objects.create(
+                patient=patient, appointment=appointment, total_amount=Decimal("50.00"),
+                bill_date=today, payment_status="pending", created_by=self.staff,
+            )
+            appointments.append((appointment, bill))
 
+        queue_url = "/api/receptionist/token-queue/today/"
+        call_url = "/api/receptionist/token-queue/call-next/"
+        self.assertEqual(self.client.get(queue_url).data["waiting_count"], 0)
+        self.assertIsNone(self.client.post(call_url, {}).data["now_serving"])
+
+        appt, bill = appointments[0]
+        appointment_detail_url = f"/api/receptionist/appointments/{appt.appointment_id}/"
+        self.assertFalse(self.client.get(appointment_detail_url).data["queue_eligible"])
+        partial = self.client.post(f"/api/receptionist/bills/{bill.bill_id}/payments/", {
+            "amount": "20.00", "payment_method": "cash"
+        })
+        self.assertEqual(partial.status_code, 201)
+        self.assertEqual(self.client.get(queue_url).data["waiting_count"], 0)
+
+        completed_payment = self.client.post(f"/api/receptionist/bills/{bill.bill_id}/payments/", {
+            "amount": "30.00", "payment_method": "cash"
+        })
+        self.assertEqual(completed_payment.status_code, 201)
+        self.assertTrue(completed_payment.data["queue_eligible"])
+        self.assertTrue(self.client.get(appointment_detail_url).data["queue_eligible"])
+        self.assertEqual(self.client.get(queue_url).data["waiting_count"], 1)
+
+        # A pre-booked appointment follows the same full-payment rule.
+        prebooked, prebooked_bill = appointments[1]
+        paid = self.client.post(f"/api/receptionist/bills/{prebooked_bill.bill_id}/payments/", {
+            "amount": "50.00", "payment_method": "cash"
+        })
+        self.assertEqual(paid.status_code, 201)
+        self.assertEqual(self.client.get(queue_url).data["waiting_count"], 2)
+
+        # A paid but cancelled appointment remains outside the active queue.
+        prebooked.status = "cancelled"
+        prebooked.save(update_fields=["status"])
+        self.assertEqual(self.client.get(queue_url).data["waiting_count"], 1)
+
+    def test_token_queue_workflow(self):
+        today = timezone.localdate()
         patient_q1 = self.make_patient(full_name="Queue Patient One", mobile_number="9876500005", email="q1@example.com")
         patient_q2 = self.make_patient(full_name="Queue Patient Two", mobile_number="9876500006", email="q2@example.com")
 
-        # Create 2 appointments for today
-        appt1 = self.client.post("/api/receptionist/appointments/", {
-            "patient_id": patient_q1.patient_id, "department_id": self.department.department_id,
-            "doctor_id": self.doctor.doctor_id, "appointment_date": today.isoformat(),
-            "appointment_time": future_time, "appointment_type": "walk_in", "reason": "Fever check"
-        })
-        self.assertEqual(appt1.status_code, 201)
-        token1 = appt1.data["token_number"]
-
-        appt2 = self.client.post("/api/receptionist/appointments/", {
-            "patient_id": patient_q2.patient_id, "department_id": self.department.department_id,
-            "doctor_id": self.doctor.doctor_id, "appointment_date": today.isoformat(),
-            "appointment_time": future_time2, "appointment_type": "walk_in", "reason": "Headache check"
-        })
-        self.assertEqual(appt2.status_code, 201)
-        token2 = appt2.data["token_number"]
+        # Queue behavior is tested independently of the time-of-day booking
+        # window, which may be closed when the automated suite is run.
+        appt1 = Appointment.objects.create(
+            patient=patient_q1, doctor=self.doctor, receptionist=self.receptionist,
+            appointment_date=today, appointment_time="10:02:00", token_number="1",
+            reason="Fever check", status="scheduled", payment_status="Pending",
+            appointment_type="walk_in", created_at=timezone.now(),
+        )
+        appt2 = Appointment.objects.create(
+            patient=patient_q2, doctor=self.doctor, receptionist=self.receptionist,
+            appointment_date=today, appointment_time="10:05:00", token_number="2",
+            reason="Headache check", status="scheduled", payment_status="Pending",
+            appointment_type="walk_in", created_at=timezone.now(),
+        )
+        bill1 = Bill.objects.create(patient=patient_q1, appointment=appt1,
+                                   total_amount=Decimal("50.00"), bill_date=today,
+                                   payment_status="pending", created_by=self.staff)
+        Bill.objects.create(patient=patient_q2, appointment=appt2,
+                            total_amount=Decimal("50.00"), bill_date=today,
+                            payment_status="pending", created_by=self.staff)
+        token1, token2 = appt1.token_number, appt2.token_number
 
         # Tokens are generated sequentially and no duplicates
         self.assertNotEqual(token1, token2)
@@ -825,8 +882,21 @@ class ReceptionistAPITests(TestCase):
         # 1. Fetch Today's Queue
         queue_res = self.client.get("/api/receptionist/token-queue/today/")
         self.assertEqual(queue_res.status_code, 200)
-        self.assertEqual(queue_res.data["waiting_count"], 2)
+        self.assertEqual(queue_res.data["waiting_count"], 0)
         self.assertIsNone(queue_res.data["now_serving"])
+
+        # Unpaid appointments are retained in appointment history, but cannot
+        # be called from the doctor queue until the required fee is paid.
+        no_patient = self.client.post("/api/receptionist/token-queue/call-next/", {})
+        self.assertEqual(no_patient.status_code, 200)
+        self.assertIsNone(no_patient.data["now_serving"])
+        paid1 = self.client.post(f"/api/receptionist/bills/{bill1.bill_id}/payments/", {
+            "amount": "50.00", "payment_method": "cash"
+        })
+        self.assertEqual(paid1.status_code, 201)
+        ready_queue = self.client.get("/api/receptionist/token-queue/today/")
+        self.assertEqual(ready_queue.data["waiting_count"], 1)
+        self.assertEqual(ready_queue.data["waiting_queue"][0]["appointment_id"], appt1.appointment_id)
 
         # 2. Call Next
         call_res = self.client.post("/api/receptionist/token-queue/call-next/", {})
@@ -835,9 +905,11 @@ class ReceptionistAPITests(TestCase):
         serving_id = call_res.data["now_serving"]["appointment_id"]
         self.assertEqual(call_res.data["now_serving"]["token_number"], token1)
 
-        # 3. Cannot call another token while one is already serving
+        # The unpaid second appointment does not enter the queue and does not
+        # count as another waiting patient.
         conflict_res = self.client.post("/api/receptionist/token-queue/call-next/", {})
-        self.assertEqual(conflict_res.status_code, 409)
+        self.assertEqual(conflict_res.status_code, 200)
+        self.assertIsNone(conflict_res.data["now_serving"])
 
         # 4. Cannot complete an invalid token ID
         invalid_comp = self.client.post("/api/receptionist/token-queue/999999/complete/", {})
@@ -853,6 +925,12 @@ class ReceptionistAPITests(TestCase):
         self.assertEqual(already_comp.status_code, 400)
 
         # 7. Call next patient in line (token2)
+        bill2 = Bill.objects.get(appointment_id=appt2.appointment_id)
+        paid2 = self.client.post(f"/api/receptionist/bills/{bill2.bill_id}/payments/", {
+            "amount": "50.00", "payment_method": "cash"
+        })
+        self.assertEqual(paid2.status_code, 201)
+        self.assertEqual(self.client.get("/api/receptionist/token-queue/today/").data["waiting_count"], 1)
         call_res2 = self.client.post("/api/receptionist/token-queue/call-next/", {})
         self.assertEqual(call_res2.status_code, 200)
         self.assertEqual(call_res2.data["now_serving"]["token_number"], token2)
@@ -928,34 +1006,29 @@ class ReceptionistAPITests(TestCase):
         p_a2 = self.make_patient(full_name="Queue DocA 2", mobile_number="9876500032", email="qa2@example.com")
         p_b1 = self.make_patient(full_name="Queue DocB 1", mobile_number="9876500033", email="qb1@example.com")
 
-        # Create appointments for today
-        now = timezone.localtime()
-        if now.hour == 23 and now.minute > 50:
-            time_a1 = now.strftime("%H:%M:%S")
-            time_a2 = "23:59:59"
-        else:
-            time_a1 = (now + timedelta(minutes=2)).strftime("%H:%M:%S")
-            time_a2 = (now + timedelta(minutes=5)).strftime("%H:%M:%S")
-        time_b1 = time_a1
+        # Create queue rows directly so this test does not depend on whether
+        # the clinic is currently inside its walk-in booking hours.
+        def queue_appointment(patient, doctor, token, time_value):
+            appointment = Appointment.objects.create(
+                patient=patient, doctor=doctor, receptionist=self.receptionist,
+                appointment_date=today, appointment_time=time_value, token_number=token,
+                reason="Queue isolation", status="scheduled", payment_status="Pending",
+                appointment_type="walk_in", created_at=timezone.now(),
+            )
+            Bill.objects.create(patient=patient, appointment=appointment,
+                                total_amount=doctor.consultation_fee, bill_date=today,
+                                payment_status="pending", created_by=self.staff)
+            return appointment
 
-        res_a1 = self.client.post("/api/receptionist/appointments/", {
-            "patient_id": p_a1.patient_id, "department_id": self.department.department_id,
-            "doctor_id": self.doctor.doctor_id, "appointment_date": today.isoformat(),
-            "appointment_time": time_a1, "appointment_type": "walk_in", "reason": "Walk-in QA1"
-        })
-        res_a2 = self.client.post("/api/receptionist/appointments/", {
-            "patient_id": p_a2.patient_id, "department_id": self.department.department_id,
-            "doctor_id": self.doctor.doctor_id, "appointment_date": today.isoformat(),
-            "appointment_time": time_a2, "appointment_type": "walk_in", "reason": "Walk-in QA2"
-        })
-        res_b1 = self.client.post("/api/receptionist/appointments/", {
-            "patient_id": p_b1.patient_id, "department_id": self.department.department_id,
-            "doctor_id": doctor_b.doctor_id, "appointment_date": today.isoformat(),
-            "appointment_time": time_b1, "appointment_type": "walk_in", "reason": "Walk-in QB1"
-        })
-        self.assertEqual(res_a1.status_code, 201)
-        self.assertEqual(res_a2.status_code, 201)
-        self.assertEqual(res_b1.status_code, 201)
+        res_a1 = queue_appointment(p_a1, self.doctor, "1", "10:02:00")
+        res_a2 = queue_appointment(p_a2, self.doctor, "2", "10:05:00")
+        res_b1 = queue_appointment(p_b1, doctor_b, "1", "10:02:00")
+        for appointment in (res_a1, res_a2, res_b1):
+            bill = Bill.objects.get(appointment=appointment)
+            payment = self.client.post(f"/api/receptionist/bills/{bill.bill_id}/payments/", {
+                "amount": str(bill.total_amount), "payment_method": "cash"
+            })
+            self.assertEqual(payment.status_code, 201)
 
         # Call Next for Doctor A calls Token 1
         res_call_a = self.client.post("/api/receptionist/token-queue/call-next/", {
@@ -963,7 +1036,7 @@ class ReceptionistAPITests(TestCase):
         })
         self.assertEqual(res_call_a.status_code, 200)
         self.assertEqual(res_call_a.data["now_serving"]["token_number"], "1")
-        self.assertEqual(res_call_a.data["now_serving"]["appointment_id"], res_a1.data["appointment_id"])
+        self.assertEqual(res_call_a.data["now_serving"]["appointment_id"], res_a1.appointment_id)
 
         # Calling next for Doctor A while Token 1 is serving returns 409
         res_call_a_again = self.client.post("/api/receptionist/token-queue/call-next/", {
@@ -977,10 +1050,10 @@ class ReceptionistAPITests(TestCase):
         })
         self.assertEqual(res_call_b.status_code, 200)
         self.assertEqual(res_call_b.data["now_serving"]["token_number"], "1")
-        self.assertEqual(res_call_b.data["now_serving"]["appointment_id"], res_b1.data["appointment_id"])
+        self.assertEqual(res_call_b.data["now_serving"]["appointment_id"], res_b1.appointment_id)
 
         # Complete Token 1 for Doctor A
-        res_complete_a = self.client.post(f"/api/receptionist/token-queue/{res_a1.data['appointment_id']}/complete/")
+        res_complete_a = self.client.post(f"/api/receptionist/token-queue/{res_a1.appointment_id}/complete/")
         self.assertEqual(res_complete_a.status_code, 200)
         self.assertEqual(res_complete_a.data["completed"]["status"], "completed")
 
@@ -990,7 +1063,7 @@ class ReceptionistAPITests(TestCase):
         })
         self.assertEqual(res_call_a2.status_code, 200)
         self.assertEqual(res_call_a2.data["now_serving"]["token_number"], "2")
-        self.assertEqual(res_call_a2.data["now_serving"]["appointment_id"], res_a2.data["appointment_id"])
+        self.assertEqual(res_call_a2.data["now_serving"]["appointment_id"], res_a2.appointment_id)
 
 
 @override_settings(ROOT_URLCONF="receptionistapp.tests")

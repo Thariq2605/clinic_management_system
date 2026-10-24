@@ -12,6 +12,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from core.models import Appointment, Bill, Department, Doctor, Patient, Payment, Receptionist, Staff, User
+from core.services import appointment_queue_eligible
 from .permissions import IsReceptionistSession, ReceptionistSessionAuthentication
 from .serializers import (AppointmentCreateSerializer, AppointmentDetailSerializer,
                           AppointmentSerializer, DepartmentSerializer, DoctorSerializer,
@@ -332,6 +333,8 @@ def appointment_payments(request, appointment_id):
             if len(bills) != 1:
                 return Response({"error": "Appointment has multiple active bills."}, status=409)
             bill = bills[0]
+            if appointment.status == "cancelled":
+                return Response({"error": "Cancelled appointments cannot receive payment."}, status=409)
             paid = bill.payment_set.filter(is_active=True).aggregate(total=Sum("amount"))["total"]
             paid = paid or Decimal("0.00")
             if bill.payment_status == "paid" or paid >= bill.total_amount:
@@ -354,7 +357,8 @@ def appointment_payments(request, appointment_id):
                      "paid_total": str(paid), "balance": str(bill.total_amount - paid),
                      "payment_method": payment.payment_method,
                      "transaction_reference": payment.transaction_reference,
-                     "payment_date": payment.payment_date.isoformat()}, status=201)
+                     "payment_date": payment.payment_date.isoformat(),
+                     "queue_eligible": appointment_queue_eligible(appointment)}, status=201)
 
 
 record_payment = appointment_payments
@@ -433,7 +437,15 @@ def bill_payments(request, bill_id):
     serializer.is_valid(raise_exception=True)
     try:
         with transaction.atomic():
-            bill = Bill.objects.select_for_update().select_related("appointment").get(bill_id=bill_id, is_active=True)
+            bill_ref = Bill.objects.select_related("appointment").get(bill_id=bill_id, is_active=True)
+            appointment = None
+            if bill_ref.appointment_id:
+                appointment = Appointment.objects.select_for_update().get(
+                    appointment_id=bill_ref.appointment_id
+                )
+                if not appointment.is_active or appointment.status == "cancelled":
+                    return Response({"error": "Cancelled appointments cannot receive payment."}, status=409)
+            bill = Bill.objects.select_for_update().get(bill_id=bill_id, is_active=True)
             paid = bill.payment_set.filter(is_active=True).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
 
             if bill.payment_status == "paid" or paid >= bill.total_amount:
@@ -449,9 +461,9 @@ def bill_payments(request, bill_id):
             bill.payment_status = "paid" if paid == bill.total_amount else "partial"
             bill.save(update_fields=["payment_status"])
 
-            if bill.appointment:
-                bill.appointment.payment_status = "Paid" if bill.payment_status == "paid" else "Pending"
-                bill.appointment.save(update_fields=["payment_status"])
+            if appointment:
+                appointment.payment_status = "Paid" if bill.payment_status == "paid" else "Pending"
+                appointment.save(update_fields=["payment_status"])
     except Bill.DoesNotExist:
         return Response({"error": "Bill was not found."}, status=404)
 
@@ -465,6 +477,7 @@ def bill_payments(request, bill_id):
         "payment_method": payment.payment_method,
         "transaction_reference": payment.transaction_reference,
         "payment_date": payment.payment_date.isoformat(),
+        "queue_eligible": appointment_queue_eligible(appointment) if appointment else False,
     }, status=201)
 
 
@@ -497,12 +510,15 @@ def token_queue_today(request):
 
     all_appointments = list(rows)
 
+    # Only fully paid appointments are eligible for the active doctor queue.
+    paid_appointments = [a for a in all_appointments if appointment_queue_eligible(a)]
+
     # Now Serving
-    serving_appts = [a for a in all_appointments if a.status == "serving"]
+    serving_appts = [a for a in paid_appointments if a.status == "serving"]
     now_serving = TokenQueueAppointmentSerializer(serving_appts[0]).data if serving_appts else None
 
     # Waiting
-    waiting_appts = [a for a in all_appointments if a.status in ("scheduled", "confirmed")]
+    waiting_appts = [a for a in paid_appointments if a.status in ("scheduled", "confirmed")]
     waiting_appts.sort(key=_token_sort_key)
     next_token = waiting_appts[0].token_number if waiting_appts else None
     next_token_display = f"{int(next_token):03d}" if next_token and next_token.isdigit() else next_token
@@ -537,7 +553,7 @@ def token_queue_call_next(request):
         ).select_related("patient", "doctor", "doctor__staff")
         if doctor_id:
             serving_query = serving_query.filter(doctor_id=doctor_id)
-            serving = serving_query.first()
+            serving = next((a for a in serving_query if appointment_queue_eligible(a)), None)
             if serving:
                 return Response({
                     "error": f"Token #{serving.token_number} ({serving.patient.full_name}) is currently serving. Complete the current consultation before calling next."
@@ -545,12 +561,13 @@ def token_queue_call_next(request):
 
         # Get waiting appointments
         waiting_query = Appointment.objects.select_for_update().filter(
-            appointment_date=today, is_active=True, status__in=["scheduled", "confirmed"]
+            appointment_date=today, is_active=True, status__in=["scheduled", "confirmed"],
+            payment_status="Paid"
         ).select_related("patient", "doctor", "doctor__staff", "doctor__department")
         if doctor_id:
             waiting_query = waiting_query.filter(doctor_id=doctor_id)
 
-        waiting_list = list(waiting_query)
+        waiting_list = [a for a in waiting_query if appointment_queue_eligible(a)]
         if not waiting_list:
             return Response({
                 "message": "No patients waiting.",
@@ -560,10 +577,11 @@ def token_queue_call_next(request):
         waiting_list.sort(key=_token_sort_key)
 
         if not doctor_id:
-            serving_doctor_ids = set(serving_query.values_list("doctor_id", flat=True))
+            eligible_serving = [a for a in serving_query if appointment_queue_eligible(a)]
+            serving_doctor_ids = {a.doctor_id for a in eligible_serving}
             eligible = [a for a in waiting_list if a.doctor_id not in serving_doctor_ids]
             if not eligible:
-                first_serving = serving_query.first()
+                first_serving = eligible_serving[0]
                 return Response({
                     "error": f"Token #{first_serving.token_number} ({first_serving.patient.full_name}) is currently serving. Complete the current consultation before calling next."
                 }, status=409)
@@ -601,6 +619,9 @@ def token_queue_complete(request, appointment_id):
             return Response({
                 "error": f"Only currently serving tokens can be completed. (Current status: {appointment.status})"
             }, status=400)
+
+        if not appointment_queue_eligible(appointment):
+            return Response({"error": "Payment must be confirmed before completing a queue token."}, status=409)
 
         appointment.status = "completed"
         appointment.save(update_fields=["status"])

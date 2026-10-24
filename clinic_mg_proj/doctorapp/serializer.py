@@ -79,7 +79,8 @@ class ConsultationSerializer(serializers.ModelSerializer):
                 'consultation_id',
                 'appointment',
                 'doctor',
-                'consultation_date'
+                'consultation_date',
+                'is_active'
             ]
 
 class PrescriptionSerializer(serializers.ModelSerializer):

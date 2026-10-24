@@ -226,6 +226,15 @@ class PaymentGatedAppointmentAccessTests(TestCase):
             {"symptoms": "Headache", "diagnosis": "Migraine", "notes": "Prescribed medicine"}
         )
         self.assertEqual(res_consult.status_code, 201)
+        duplicate_consult = self.client.post(
+            f"/doctor/appointments/{self.doctor1.doctor_id}/{appt.appointment_id}/consultation/",
+            {"symptoms": "Headache", "diagnosis": "Migraine", "notes": "Duplicate retry"}
+        )
+        self.assertEqual(duplicate_consult.status_code, 409, {
+            "response": duplicate_consult.data,
+            "consultations": Consultation.objects.filter(appointment=appt, is_active=True).count(),
+        })
+        self.assertEqual(Consultation.objects.filter(appointment=appt, is_active=True).count(), 1)
 
     # -----------------------------------------------------------
     # 3. Partial payment keeps Doctor blocked
@@ -449,15 +458,13 @@ class PaymentGatedAppointmentAccessTests(TestCase):
     # -----------------------------------------------------------
     # 10. Doctor appointment list returns payment_status
     # -----------------------------------------------------------
-    def test_doctor_appointments_list_includes_payment_status(self):
+    def test_doctor_appointments_list_excludes_unpaid_until_payment_is_verified(self):
         appt1, bill1 = self.create_test_appointment()
         self.auth_doctor1()
 
         res = self.client.get(f"/doctor/appointments/{self.doctor1.doctor_id}/")
         self.assertEqual(res.status_code, 200)
-        self.assertTrue(len(res.data) > 0)
-        item = [x for x in res.data if x["appointment_id"] == appt1.appointment_id][0]
-        self.assertEqual(item["payment_status"], "Pending")
+        self.assertFalse(any(x["appointment_id"] == appt1.appointment_id for x in res.data))
 
         # Now pay
         self.auth_receptionist()
