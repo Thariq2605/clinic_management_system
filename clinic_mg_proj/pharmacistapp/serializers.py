@@ -1,9 +1,11 @@
-from rest_framework import serializers
 from decimal import Decimal
+
+from rest_framework import serializers
 
 from core.models import Medicine, PrescriptionMedicine
 from core.models import Prescription
 from core.models import Bill, Payment
+from .models import PharmacyDispense
 
 class MedicineSerializer(serializers.ModelSerializer):
     unit_price = serializers.DecimalField(
@@ -50,14 +52,36 @@ class PrescriptionSerializer(serializers.ModelSerializer):
         ]
 
 
+class DispenseInputSerializer(serializers.Serializer):
+    quantity = serializers.IntegerField(min_value=1)
+
+
+class PharmacyDispenseSerializer(serializers.ModelSerializer):
+    line_total = serializers.DecimalField(
+        max_digits=12, decimal_places=2, read_only=True
+    )
+
+    class Meta:
+        model = PharmacyDispense
+        fields = [
+            "dispense_id", "prescription_medicine", "medicine_name",
+            "quantity", "unit_price", "line_total",
+        ]
+
 
 
 class BillSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(source='patient.full_name', read_only=True)
+    items = PharmacyDispenseSerializer(
+        source="pharmacy_dispenses", many=True, read_only=True
+    )
 
     class Meta:
         model = Bill
-        fields = ['bill_id', 'patient', 'patient_name', 'appointment', 'total_amount', 'bill_date', 'payment_status', 'created_by']
+        fields = [
+            'bill_id', 'patient', 'patient_name', 'appointment', 'total_amount',
+            'bill_date', 'payment_status', 'created_by', 'items',
+        ]
         read_only_fields = ['bill_id', 'bill_date']
 
 
@@ -70,6 +94,18 @@ class PaymentSerializer(serializers.ModelSerializer):
 
 class PaymentInputSerializer(serializers.Serializer):
     payment_method = serializers.ChoiceField(choices=Payment.PAYMENT_METHOD_CHOICES)
+    amount_verified = serializers.BooleanField()
     transaction_reference = serializers.CharField(
         required=False, allow_blank=True, allow_null=True, max_length=100
     )
+
+    def validate(self, attrs):
+        if not attrs["amount_verified"]:
+            raise serializers.ValidationError({
+                "amount_verified": "Verify the bill against the quantity actually dispensed before recording payment."
+            })
+        if attrs["payment_method"] != "cash" and not attrs.get("transaction_reference", "").strip():
+            raise serializers.ValidationError({
+                "transaction_reference": "Enter the reference from the verified card or electronic payment."
+            })
+        return attrs

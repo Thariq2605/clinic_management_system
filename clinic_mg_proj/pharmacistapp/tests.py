@@ -21,6 +21,7 @@ from core.models import (
     Staff,
     User,
 )
+from pharmacistapp.models import PharmacyDispense
 
 
 class PharmacistSecurityTests(APITestCase):
@@ -121,6 +122,13 @@ class PharmacistSecurityTests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {token}")
         return response
 
+    def dispense_item(self, item, quantity=1):
+        return self.client.post(
+            f"/pharmacist/prescription-medicines/{item.item_id}/dispense/",
+            {"quantity": quantity},
+            format="json",
+        )
+
     def test_pharmacist_login_returns_server_signed_jwt(self):
         response = self.login_as(self.pharmacist)
         self.assertEqual(response.data["role"], "Pharmacist")
@@ -180,7 +188,9 @@ class PharmacistSecurityTests(APITestCase):
             )
             _, item, _, _ = self.create_prescription(medicine=medicine)
             response = self.client.post(
-                f"/pharmacist/prescription-medicines/{item.item_id}/dispense/", {}, format="json"
+                f"/pharmacist/prescription-medicines/{item.item_id}/dispense/",
+                {"quantity": 1},
+                format="json",
             )
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
             medicine.refresh_from_db()
@@ -188,14 +198,25 @@ class PharmacistSecurityTests(APITestCase):
 
         _, item, _, _ = self.create_prescription()
         url = f"/pharmacist/prescription-medicines/{item.item_id}/dispense/"
-        self.assertEqual(self.client.post(url, {}, format="json").status_code, status.HTTP_200_OK)
         self.assertEqual(self.client.post(url, {}, format="json").status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.client.post(url, {"quantity": 6}, format="json").status_code, status.HTTP_400_BAD_REQUEST)
+        dispensed = self.client.post(url, {"quantity": 4}, format="json")
+        self.assertEqual(dispensed.status_code, status.HTTP_200_OK)
+        self.assertEqual(dispensed.data["quantity"], 4)
+        self.assertEqual(dispensed.data["unit_price"], "2.50")
+        self.assertEqual(
+            self.client.post(url, {"quantity": 1}, format="json").status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
         self.medicine.refresh_from_db()
-        self.assertEqual(self.medicine.quantity, 4)
+        self.assertEqual(self.medicine.quantity, 1)
+        self.assertEqual(PharmacyDispense.objects.get(prescription_medicine=item).quantity, 4)
 
         _, inactive_item, _, _ = self.create_prescription(active=False)
         response = self.client.post(
-            f"/pharmacist/prescription-medicines/{inactive_item.item_id}/dispense/", {}, format="json"
+            f"/pharmacist/prescription-medicines/{inactive_item.item_id}/dispense/",
+            {"quantity": 1},
+            format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
@@ -220,43 +241,88 @@ class PharmacistSecurityTests(APITestCase):
         self.assertEqual(incomplete.status_code, status.HTTP_409_CONFLICT)
         self.assertIn("not fully dispensed", incomplete.data["detail"])
 
-        item.is_active = False
-        item.save(update_fields=["is_active"])
+        self.assertEqual(self.dispense_item(item, quantity=5).status_code, status.HTTP_200_OK)
 
         response = self.client.post(url, {}, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         pharmacy_bill = Bill.objects.get(pk=response.data["bill_id"])
-        self.assertEqual(pharmacy_bill.total_amount, Decimal("2.50"))
+        self.assertEqual(pharmacy_bill.total_amount, Decimal("12.50"))
+        self.assertEqual(pharmacy_bill.payment_status, "pending")
+        self.assertEqual(response.data["items"][0]["quantity"], 5)
+        self.assertEqual(response.data["items"][0]["line_total"], "12.50")
         self.assertEqual(pharmacy_bill.created_by, pharmacist_staff)
         reception_bill.refresh_from_db()
         self.assertEqual(reception_bill.total_amount, Decimal("50.00"))
         self.assertEqual(self.client.get("/pharmacist/bills/").data[0]["bill_id"], pharmacy_bill.pk)
         self.assertEqual(
-            self.client.post(f"/pharmacist/bills/{reception_bill.pk}/pay/", {"payment_method": "cash"}, format="json").status_code,
+            self.client.post(
+                f"/pharmacist/bills/{reception_bill.pk}/pay/",
+                {"payment_method": "cash", "amount_verified": True},
+                format="json",
+            ).status_code,
             status.HTTP_404_NOT_FOUND,
         )
         self.assertEqual(self.client.post(url, {}, format="json").status_code, status.HTTP_409_CONFLICT)
         self.assertEqual(Bill.objects.filter(created_by=pharmacist_staff, is_active=True).count(), 1)
 
+    def test_five_tablets_at_two_rupees_bill_as_ten_rupees(self):
+        self.login_as(self.pharmacist)
+        prescription, item, _, _ = self.create_prescription()
+        self.medicine.unit_price = Decimal("2.00")
+        self.medicine.save(update_fields=["unit_price"])
+
+        dispensed = self.dispense_item(item, quantity=5)
+        self.assertEqual(dispensed.status_code, status.HTTP_200_OK)
+        self.medicine.refresh_from_db()
+        self.assertEqual(self.medicine.quantity, 0)
+
+        response = self.client.post(
+            f"/pharmacist/prescriptions/{prescription.pk}/bill/", {}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["total_amount"], "10.00")
+        self.assertEqual(response.data["items"][0]["line_total"], "10.00")
+
     def test_payment_validates_method_and_prevents_duplicate_charge(self):
         self.login_as(self.pharmacist)
         prescription, item, _, _ = self.create_prescription()
-        item.is_active = False
-        item.save(update_fields=["is_active"])
+        self.assertEqual(self.dispense_item(item, quantity=2).status_code, status.HTTP_200_OK)
         response = self.client.post(
             f"/pharmacist/prescriptions/{prescription.pk}/bill/", {}, format="json"
         )
         bill_id = response.data["bill_id"]
         url = f"/pharmacist/bills/{bill_id}/pay/"
 
-        invalid = self.client.post(url, {"payment_method": "barter"}, format="json")
+        invalid = self.client.post(
+            url, {"payment_method": "barter", "amount_verified": True}, format="json"
+        )
         self.assertEqual(invalid.status_code, status.HTTP_400_BAD_REQUEST)
+        amount_unverified = self.client.post(
+            url, {"payment_method": "cash", "amount_verified": False}, format="json"
+        )
+        self.assertEqual(amount_unverified.status_code, status.HTTP_400_BAD_REQUEST)
+        amount_unconfirmed = self.client.post(url, {"payment_method": "cash"}, format="json")
+        self.assertEqual(amount_unconfirmed.status_code, status.HTTP_400_BAD_REQUEST)
+        missing_reference = self.client.post(
+            url, {"payment_method": "upi", "amount_verified": True}, format="json"
+        )
+        self.assertEqual(missing_reference.status_code, status.HTTP_400_BAD_REQUEST)
         paid = self.client.post(
-            url, {"payment_method": "upi", "transaction_reference": "TEST-123"}, format="json"
+            url,
+            {
+                "payment_method": "upi",
+                "transaction_reference": "TEST-123",
+                "amount_verified": True,
+            },
+            format="json",
         )
         self.assertEqual(paid.status_code, status.HTTP_200_OK)
         self.assertEqual(paid.data["payment_status"], "paid")
-        self.assertEqual(self.client.get("/pharmacist/payments/").data[0]["amount"], "2.50")
-        self.assertEqual(self.client.post(url, {"payment_method": "cash"}, format="json").status_code,
-                         status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(self.client.get("/pharmacist/payments/").data[0]["amount"], "5.00")
+        self.assertEqual(
+            self.client.post(
+                url, {"payment_method": "cash", "amount_verified": True}, format="json"
+            ).status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
         self.assertEqual(len(self.client.get("/pharmacist/payments/").data), 1)

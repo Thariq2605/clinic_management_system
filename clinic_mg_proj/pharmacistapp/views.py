@@ -22,12 +22,15 @@ from core.models import (
 )
 from .serializers import (
     BillSerializer,
+    DispenseInputSerializer,
     MedicineSerializer,
     PaymentInputSerializer,
     PaymentSerializer,
+    PharmacyDispenseSerializer,
     PrescriptionMedicineSerializer,
     PrescriptionSerializer,
 )
+from .models import PharmacyDispense
 from .permissions import IsPharmacist
 
 class PharmacistLoginView(APIView):
@@ -123,6 +126,9 @@ class PrescriptionMedicineViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=['post'])
     def dispense(self, request, pk=None):
+        serializer = DispenseInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        quantity = serializer.validated_data["quantity"]
         with transaction.atomic():
             item = self.get_queryset().select_for_update().filter(pk=pk).first()
             if item is None:
@@ -134,15 +140,40 @@ class PrescriptionMedicineViewSet(viewsets.ReadOnlyModelViewSet):
                 return Response({"detail": "This medicine is inactive and cannot be dispensed."}, status=status.HTTP_400_BAD_REQUEST)
             if medicine.expiry_date < timezone.localdate():
                 return Response({"detail": "Expired medicine cannot be dispensed."}, status=status.HTTP_400_BAD_REQUEST)
-            if medicine.quantity < 1:
-                return Response({"detail": f"Insufficient stock for {medicine.medicine_name}."}, status=status.HTTP_400_BAD_REQUEST)
-            medicine.quantity -= 1
+            if medicine.quantity < quantity:
+                return Response(
+                    {"detail": f"Only {medicine.quantity} unit(s) of {medicine.medicine_name} are in stock."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            staff = Staff.objects.filter(user=request.user, is_active=True).first()
+            if staff is None:
+                return Response(
+                    {"detail": "An active pharmacist staff record is required to dispense medicine."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            medicine.quantity -= quantity
             medicine.save(update_fields=["quantity"])
             item.is_active = False
             item.save(update_fields=["is_active"])
+            dispense = PharmacyDispense.objects.create(
+                prescription_medicine=item,
+                medicine=medicine,
+                medicine_name=medicine.medicine_name,
+                quantity=quantity,
+                unit_price=medicine.unit_price,
+                dispensed_by=staff,
+                dispensed_at=timezone.now(),
+            )
 
         return Response(
-            {"detail": f"{medicine.medicine_name} dispensed. Remaining stock: {medicine.quantity}"},
+            {
+                **PharmacyDispenseSerializer(dispense).data,
+                "detail": (
+                    f"{quantity} unit(s) of {medicine.medicine_name} dispensed. "
+                    f"Remaining stock: {medicine.quantity}"
+                ),
+                "remaining_stock": medicine.quantity,
+            },
             status=status.HTTP_200_OK
         )
 
@@ -202,8 +233,20 @@ class PrescriptionViewSet(viewsets.ReadOnlyModelViewSet):
                     status=status.HTTP_409_CONFLICT
                 )
 
+            dispenses = list(
+                PharmacyDispense.objects.select_for_update().filter(
+                    prescription_medicine__in=prescription_items,
+                    bill__isnull=True,
+                )
+            )
+            if len(dispenses) != len(prescription_items):
+                return Response(
+                    {"detail": "Recorded dispense quantities are missing. No bill was created."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
             total = sum(
-                (item.medicine.unit_price for item in prescription_items),
+                (dispense.line_total for dispense in dispenses),
                 Decimal("0.00"),
             )
             bill = Bill.objects.create(
@@ -215,8 +258,14 @@ class PrescriptionViewSet(viewsets.ReadOnlyModelViewSet):
                 created_by=staff,
                 is_active=True,
             )
+            PharmacyDispense.objects.filter(
+                dispense_id__in=[dispense.dispense_id for dispense in dispenses]
+            ).update(bill=bill)
 
-        return Response(BillSerializer(bill).data, status=status.HTTP_200_OK)
+        return Response(
+            BillSerializer(bill, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
 
 class BillViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Bill.objects.all().order_by('-bill_date')
