@@ -19,6 +19,7 @@ from core.models import (
     PrescriptionMedicine,
     PrescriptionLabTest,
     MedicalRecord,
+    Patient,
     Medicine,
     LabTest,
     LabOrderItem,
@@ -38,7 +39,6 @@ from .serializer import (
 )
 
 from doctorapp.permission import IsDoctor
-from django.db.models import Q
 
 
 def is_appointment_payment_completed(appointment):
@@ -776,12 +776,19 @@ def search_patients(request, doctor_id):
         '-appointment_time'
     )
 
-    # Search by Patient ID, name or phone number
-    appointments = appointments.filter(
-        Q(patient__patient_id__icontains=search) |
-        Q(patient__full_name__icontains=search) |
-        Q(patient__mobile_number__icontains=search)
-    )
+    # Prefer an exact Patient ID for numeric searches; if there is no ID match,
+    # keep numeric phone-number searches available.
+    if search.isdigit():
+        if Patient.objects.filter(patient_id=search).exists():
+            appointments = appointments.filter(patient__patient_id=search)
+        else:
+            appointments = appointments.filter(
+                patient__mobile_number__icontains=search
+            )
+    else:
+        appointments = appointments.filter(
+            patient__full_name__icontains=search
+        )
 
     results = []
 
