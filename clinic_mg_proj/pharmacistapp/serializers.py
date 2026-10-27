@@ -1,9 +1,16 @@
 from rest_framework import serializers
+from decimal import Decimal
+
 from core.models import Medicine, PrescriptionMedicine
 from core.models import Prescription
 from core.models import Bill, Payment
 
 class MedicineSerializer(serializers.ModelSerializer):
+    unit_price = serializers.DecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal("0.00")
+    )
+    quantity = serializers.IntegerField(min_value=0)
+
     class Meta:
         model = Medicine
         fields = [
@@ -37,7 +44,10 @@ class PrescriptionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Prescription
-        fields = ['prescription_id', 'patient_name', 'doctor_name', 'prescription_date']
+        fields = [
+            'prescription_id', 'patient', 'patient_name', 'doctor',
+            'doctor_name', 'prescription_date'
+        ]
 
 
 
@@ -56,3 +66,10 @@ class PaymentSerializer(serializers.ModelSerializer):
         model = Payment
         fields = ['payment_id', 'bill', 'amount', 'payment_method', 'payment_date', 'transaction_reference']
         read_only_fields = ['payment_id', 'payment_date']
+
+
+class PaymentInputSerializer(serializers.Serializer):
+    payment_method = serializers.ChoiceField(choices=Payment.PAYMENT_METHOD_CHOICES)
+    transaction_reference = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True, max_length=100
+    )

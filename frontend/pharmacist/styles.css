@@ -599,7 +599,7 @@ td .btn + .btn {
   color: #0369a1;
 }
 
-.b-Dispensed, .b-Available {
+.b-Dispensed, .b-Available, .b-Paid {
   background-color: #dcfce7;
   color: #166534;
 }

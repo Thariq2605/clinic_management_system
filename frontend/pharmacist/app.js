@@ -202,7 +202,7 @@ const STEPS = ['Open prescription', 'Check availability', 'Review medicines', 'C
 function payments() {
   const rows = S.bills.filter(b => !S.pq || String(b.bill_id).includes(S.pq) || (b.patient_name || '').toLowerCase().includes(S.pq.toLowerCase()))
     .map(b => `<tr><td>#${b.bill_id}</td><td>${esc(b.patient_name || '—')}</td><td>${money(b.total_amount)}</td><td>${b.bill_date}</td>
-      <td>${badge(b.payment_status === 'paid' ? 'Dispensed' : 'Pending')}</td>
+      <td>${badge(b.payment_status === 'paid' ? 'Paid' : 'Pending')}</td>
       <td>${b.payment_status !== 'paid' ? `<button class="btn sm pri" data-a="paynow" data-id="${b.bill_id}"><i class="bi bi-cash me-1"></i>Mark as Paid</button>` : '<span class="muted">Paid</span>'}</td></tr>`);
   return `<div class="bar-tools"><input id="pq" type="search" placeholder="Search by bill ID or patient" value="${esc(S.pq)}" aria-label="Search bills"></div>
    <div class="card">${rows.length ? table(['Bill ID', 'Patient', 'Amount', 'Date', 'Status', 'Action'], rows) : state('No medicine bills yet', '<p>Bills appear here once a prescription has been dispensed.</p>')}</div>`;
@@ -218,10 +218,10 @@ function dispensing() {
     const m = medOf(i), s = m ? stock(m) : 'Out of Stock', ok = i.is_active && s !== 'Expired' && s !== 'Out of Stock';
     return { i, m, s, ok };
   });
-  const head = `<div class="kv"><div><span>Prescription</span>#${d.rx.id}</div><div><span>Patient</span>${esc(d.rx.meta.patient_name || '—')}</div><div><span>Date</span>${today()}</div><div><span>Status</span>${badge(d.step === 5 ? 'Dispensed' : 'Processing')}</div></div>`;
+  const head = `<div class="kv"><div><span>Prescription</span>#${d.rx.id}</div><div><span>Patient</span>${esc(d.rx.meta.patient_name || '—')} (#${esc(d.rx.meta.patient_id || '—')})</div><div><span>Prescriber</span>${esc(d.rx.meta.doctor_name || '—')} (#${esc(d.rx.meta.doctor_id || '—')})</div><div><span>Prescription date</span>${esc(d.rx.meta.prescription_date || '—')}</div><div><span>Status</span>${badge(d.step === 5 ? 'Dispensed' : 'Processing')}</div></div>`;
   let body = '';
   if (d.step === 2) body = table(['Medicine', 'In stock', 'Availability'], rows.map(r => `<tr><td>${esc(r.i.medicine_details)}</td><td>${r.m?.quantity ?? 0}</td><td>${r.i.is_active ? badge(r.s) : badge('Dispensed')}</td></tr>`));
-  else if (d.step === 3 || d.step === 4) body = table(['Medicine', 'Quantity', 'Dosage', 'Frequency', 'Duration', 'Instructions'], rows.filter(r => r.i.is_active).map(r => `<tr><td>${esc(r.i.medicine_details)}</td><td>1</td><td>${esc(r.i.dosage)}</td><td>${esc(r.i.frequency)}</td><td>${r.i.duration} days</td><td>${esc(r.i.instructions)}</td></tr>`));
+  else if (d.step === 3 || d.step === 4) body = table(['Medicine', 'Stock units deducted', 'Dosage', 'Frequency', 'Duration', 'Instructions'], rows.filter(r => r.i.is_active).map(r => `<tr><td>${esc(r.i.medicine_details)}</td><td>1</td><td>${esc(r.i.dosage)}</td><td>${esc(r.i.frequency)}</td><td>${r.i.duration} days</td><td>${esc(r.i.instructions)}</td></tr>`));
   else if (d.step === 5) {
     body = `<div class="alert ok">${d.done} medicine(s) dispensed.</div>` + (d.fail.length ? `<div class="alert bad">Not dispensed: ${esc(d.fail.join('; '))}</div>` : '');
     if (d.bill) {
@@ -235,10 +235,13 @@ function dispensing() {
   }
   const blocked = rows.some(r => r.i.is_active && !r.ok);
   const warn = d.step === 2 && blocked ? '<div class="alert warn">Some medicines are unavailable. You can still dispense the rest.</div>' : '';
+  const quantityNotice = d.step === 3 || d.step === 4
+    ? '<div class="alert warn">Prescription records do not include a dispense quantity. Verify the quantity against the original prescription; this system currently deducts one stock unit per medicine line.</div>'
+    : '';
   const nav = d.step < 5 ? `<div class="actions"><button class="btn" data-a="dcancel">Cancel</button>
     ${d.step === 4 ? `<button class="btn pri" data-a="dconfirm" ${d.busyNow ? 'disabled' : ''}>${d.busyNow ? 'Dispensing…' : 'Confirm dispensing'}</button>` : `<button class="btn pri" data-a="dnext">Continue</button>`}</div>`
     : `<div class="actions"><button class="btn pri" data-a="dcancel">Done</button></div>`;
-  return steps + `<div class="card">${head}${warn}${body}${nav}</div>`;
+  return steps + `<div class="card">${head}${warn}${quantityNotice}${body}${nav}</div>`;
 }
 
 function profile() {
@@ -298,8 +301,8 @@ function render() {
 const modal = h => { const m = $('#modal'); m.innerHTML = h; m.showModal() };
 function rxModal(id) {
   const x = rxs().find(r => r.id === id);
-  modal(`<h3>Prescription #${id}</h3><div class="kv" style="margin-top:14px"><div><span>Patient</span>${esc(x.meta.patient_name || '—')}</div><div><span>Doctor</span>${esc(x.meta.doctor_name || '—')}</div><div><span>Prescription date</span>${esc(x.meta.prescription_date || '—')}</div><div><span>Status</span>${badge(x.status)}</div></div>
-   ${table(['Medicine Name', 'Dosage', 'Frequency', 'Duration', 'Instructions'], x.items.map(i => `<tr><td>${esc(i.medicine_details)}</td><td>${esc(i.dosage)}</td><td>${esc(i.frequency)}</td><td>${i.duration} days</td><td>${esc(i.instructions)}</td></tr>`))}
+  modal(`<h3>Prescription #${id}</h3><div class="kv" style="margin-top:14px"><div><span>Patient</span>${esc(x.meta.patient_name || '—')} (#${esc(x.meta.patient_id || '—')})</div><div><span>Prescriber</span>${esc(x.meta.doctor_name || '—')} (#${esc(x.meta.doctor_id || '—')})</div><div><span>Prescription date</span>${esc(x.meta.prescription_date || '—')}</div><div><span>Status</span>${badge(x.status)}</div></div>
+   ${table(['Medicine Name', 'Dosage', 'Frequency / timing', 'Duration', 'Food / other instructions'], x.items.map(i => `<tr><td>${esc(i.medicine_details)}</td><td>${esc(i.dosage)}</td><td>${esc(i.frequency)}</td><td>${i.duration} days</td><td>${esc(i.instructions)}</td></tr>`))}
    <div class="actions"><button class="btn" data-a="close">Close</button></div>`);
 }
 function medModal(id) {
@@ -326,8 +329,8 @@ document.addEventListener('click', async e => {
     redirectToLogin();
     return;
   }
-  if (a === 'mdel' && confirm('Delete this medicine? This cannot be undone.')) {
-    try { await api(`/medicines/${id}/`, { method: 'DELETE' }); toast('Medicine deleted'); load() } catch (x) { toast(x.message) }
+  if (a === 'mdel' && confirm('Deactivate this medicine? It will be removed from active inventory but kept in historical records.')) {
+    try { await api(`/medicines/${id}/`, { method: 'DELETE' }); toast('Medicine deactivated'); load() } catch (x) { toast(x.message) }
   }
   if (a === 'dstart') { S.d = { rx: rxs().find(r => r.id === +id), step: 2, done: 0, fail: [] }; S.d.busy = +id; S.view = 'Dispensing'; $('#modal').open && $('#modal').close(); render() }
   if (a === 'dnext') { S.d.step++; render() }
