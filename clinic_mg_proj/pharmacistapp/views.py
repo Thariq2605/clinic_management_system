@@ -1,13 +1,17 @@
-from django.shortcuts import render
+from decimal import Decimal
+
 from rest_framework import viewsets, status
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db import transaction
+from django.db.models import Sum
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
+from rest_framework.exceptions import NotFound
 from core.models import (
+    Appointment,
     Bill,
     Medicine,
     Payment,
@@ -18,11 +22,15 @@ from core.models import (
 )
 from .serializers import (
     BillSerializer,
+    DispenseInputSerializer,
     MedicineSerializer,
+    PaymentInputSerializer,
     PaymentSerializer,
+    PharmacyDispenseSerializer,
     PrescriptionMedicineSerializer,
     PrescriptionSerializer,
 )
+from .models import PharmacyDispense
 from .permissions import IsPharmacist
 
 class PharmacistLoginView(APIView):
@@ -96,6 +104,13 @@ class MedicineViewSet(viewsets.ModelViewSet):
     serializer_class = MedicineSerializer
     permission_classes = [IsPharmacist]
 
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+
+    def perform_destroy(self, instance):
+        instance.is_active = False
+        instance.save(update_fields=["is_active"])
+
 
 class PrescriptionMedicineViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = PrescriptionMedicine.objects.all()
@@ -103,7 +118,7 @@ class PrescriptionMedicineViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsPharmacist]
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(prescription__is_active=True)
         is_active = self.request.query_params.get('is_active')
         if is_active is not None:
             qs = qs.filter(is_active=is_active.lower() == 'true')
@@ -111,23 +126,54 @@ class PrescriptionMedicineViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=['post'])
     def dispense(self, request, pk=None):
+        serializer = DispenseInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        quantity = serializer.validated_data["quantity"]
         with transaction.atomic():
             item = self.get_queryset().select_for_update().filter(pk=pk).first()
             if item is None:
-                from rest_framework.exceptions import NotFound
                 raise NotFound()
             medicine = Medicine.objects.select_for_update().get(pk=item.medicine_id)
             if not item.is_active:
                 return Response({"detail": "This item has already been dispensed."}, status=status.HTTP_400_BAD_REQUEST)
-            if medicine.quantity < 1:
-                return Response({"detail": f"Insufficient stock for {medicine.medicine_name}."}, status=status.HTTP_400_BAD_REQUEST)
-            medicine.quantity -= 1
+            if not medicine.is_active:
+                return Response({"detail": "This medicine is inactive and cannot be dispensed."}, status=status.HTTP_400_BAD_REQUEST)
+            if medicine.expiry_date < timezone.localdate():
+                return Response({"detail": "Expired medicine cannot be dispensed."}, status=status.HTTP_400_BAD_REQUEST)
+            if medicine.quantity < quantity:
+                return Response(
+                    {"detail": f"Only {medicine.quantity} unit(s) of {medicine.medicine_name} are in stock."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            staff = Staff.objects.filter(user=request.user, is_active=True).first()
+            if staff is None:
+                return Response(
+                    {"detail": "An active pharmacist staff record is required to dispense medicine."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            medicine.quantity -= quantity
             medicine.save(update_fields=["quantity"])
             item.is_active = False
             item.save(update_fields=["is_active"])
+            dispense = PharmacyDispense.objects.create(
+                prescription_medicine=item,
+                medicine=medicine,
+                medicine_name=medicine.medicine_name,
+                quantity=quantity,
+                unit_price=medicine.unit_price,
+                dispensed_by=staff,
+                dispensed_at=timezone.now(),
+            )
 
         return Response(
-            {"detail": f"{medicine.medicine_name} dispensed. Remaining stock: {medicine.quantity}"},
+            {
+                **PharmacyDispenseSerializer(dispense).data,
+                "detail": (
+                    f"{quantity} unit(s) of {medicine.medicine_name} dispensed. "
+                    f"Remaining stock: {medicine.quantity}"
+                ),
+                "remaining_stock": medicine.quantity,
+            },
             status=status.HTTP_200_OK
         )
 
@@ -136,59 +182,130 @@ class PrescriptionViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = PrescriptionSerializer
     permission_classes = [IsPharmacist]
 
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True).select_related(
+            "patient", "consultation__appointment"
+        )
+
     @action(detail=True, methods=['post'])
     def bill(self, request, pk=None):
-        prescription = self.get_object()
-        dispensed_items = PrescriptionMedicine.objects.filter(prescription=prescription, is_active=False)
+        with transaction.atomic():
+            prescription = self.get_object()
+            appointment = prescription.consultation.appointment
+            appointment = Appointment.objects.select_for_update().get(pk=appointment.pk)
+            if appointment.patient_id != prescription.patient_id:
+                return Response(
+                    {"detail": "Prescription patient does not match the appointment patient."},
+                    status=status.HTTP_409_CONFLICT
+                )
 
-        if not dispensed_items.exists():
-            return Response(
-                {"detail": "No dispensed medicines found for this prescription yet."},
-                status=status.HTTP_400_BAD_REQUEST
+            staff = Staff.objects.filter(user=request.user, is_active=True).first()
+            if staff is None:
+                return Response(
+                    {"detail": "An active pharmacist staff record is required to create a medicine bill."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            prescription_items = list(
+                PrescriptionMedicine.objects.select_for_update().filter(
+                    prescription=prescription
+                ).select_related("medicine")
             )
+            if not prescription_items:
+                return Response(
+                    {"detail": "This prescription has no medicine items."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if any(item.is_active for item in prescription_items):
+                return Response(
+                    {"detail": "The prescription is not fully dispensed. Resolve every medicine item before billing."},
+                    status=status.HTTP_409_CONFLICT
+                )
 
-        total = sum(item.medicine.unit_price for item in dispensed_items)
-        appointment = prescription.consultation.appointment
+            pharmacy_bill_exists = Bill.objects.filter(
+                appointment=appointment,
+                is_active=True,
+                created_by__user__role__role_name__iexact="pharmacist",
+            ).exists()
+            if pharmacy_bill_exists:
+                return Response(
+                    {"detail": "A pharmacy bill already exists for this appointment. Duplicate billing is blocked."},
+                    status=status.HTTP_409_CONFLICT
+                )
 
-        existing = Bill.objects.filter(appointment=appointment, patient=prescription.patient, payment_status='pending').first()
-        if existing:
-            existing.total_amount = total
-            existing.save()
-            bill = existing
-        else:
-            staff = Staff.objects.filter(user__username='pharma').first()  # adjust username if needed
+            dispenses = list(
+                PharmacyDispense.objects.select_for_update().filter(
+                    prescription_medicine__in=prescription_items,
+                    bill__isnull=True,
+                )
+            )
+            if len(dispenses) != len(prescription_items):
+                return Response(
+                    {"detail": "Recorded dispense quantities are missing. No bill was created."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            total = sum(
+                (dispense.line_total for dispense in dispenses),
+                Decimal("0.00"),
+            )
             bill = Bill.objects.create(
                 patient=prescription.patient,
                 appointment=appointment,
                 total_amount=total,
-                bill_date=timezone.now().date(),
-                payment_status='pending',
+                bill_date=timezone.localdate(),
+                payment_status="pending",
                 created_by=staff,
-                is_active=True
+                is_active=True,
             )
+            PharmacyDispense.objects.filter(
+                dispense_id__in=[dispense.dispense_id for dispense in dispenses]
+            ).update(bill=bill)
 
-        return Response(BillSerializer(bill).data, status=status.HTTP_200_OK)
+        return Response(
+            BillSerializer(bill, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
 
 class BillViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Bill.objects.all().order_by('-bill_date')
     serializer_class = BillSerializer
     permission_classes = [IsPharmacist]
 
+    def get_queryset(self):
+        return super().get_queryset().filter(
+            is_active=True,
+            created_by__user__role__role_name__iexact="pharmacist",
+        ).select_related("patient", "appointment", "created_by")
+
     @action(detail=True, methods=['post'])
     def pay(self, request, pk=None):
-        bill = self.get_object()
-        if bill.payment_status == 'paid':
-            return Response({"detail": "This bill is already paid."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = PaymentInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            bill = self.get_queryset().select_for_update().filter(pk=pk).first()
+            if bill is None:
+                raise NotFound()
+            paid = bill.payment_set.filter(is_active=True).aggregate(
+                total=Sum("amount")
+            )["total"] or Decimal("0.00")
+            remaining = bill.total_amount - paid
+            if remaining <= 0:
+                return Response(
+                    {"detail": "This bill has no outstanding balance."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        Payment.objects.create(
-            bill=bill,
-            amount=bill.total_amount,
-            payment_method=request.data.get('payment_method', 'cash'),
-            payment_date=timezone.now(),
-            is_active=True
-        )
-        bill.payment_status = 'paid'
-        bill.save()
+            Payment.objects.create(
+                bill=bill,
+                amount=remaining,
+                payment_method=serializer.validated_data["payment_method"],
+                transaction_reference=serializer.validated_data.get("transaction_reference"),
+                payment_date=timezone.now(),
+                is_active=True
+            )
+            bill.payment_status = 'paid'
+            bill.save(update_fields=["payment_status"])
         return Response(BillSerializer(bill).data, status=status.HTTP_200_OK)
 
 class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
@@ -197,7 +314,11 @@ class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsPharmacist]
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(
+            is_active=True,
+            bill__is_active=True,
+            bill__created_by__user__role__role_name__iexact="pharmacist",
+        )
         bill_id = self.request.query_params.get('bill')
         if bill_id is not None:
             qs = qs.filter(bill_id=bill_id)
