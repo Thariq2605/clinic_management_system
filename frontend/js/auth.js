@@ -109,6 +109,7 @@ async function handleLogin(username, password, submitBtn, errorBox) {
     localStorage.removeItem("username");
     localStorage.removeItem("current_appointment_id");
     localStorage.removeItem("user");
+    localStorage.removeItem("pharmacist_access_token");
     localStorage.removeItem("admin_token");
     localStorage.removeItem("current_user");
 
@@ -142,6 +143,16 @@ async function handleLogin(username, password, submitBtn, errorBox) {
       }, 400);
 
     } else if (role === "pharmacist") {
+      const pharmacistAuth = await apiPost(`${API_BASE_URL}/pharmacist/login/`, {
+        username: username,
+        password: password,
+      });
+
+      if (!pharmacistAuth?.access || String(pharmacistAuth.role || "").toLowerCase() !== "pharmacist") {
+        throw new Error(pharmacistAuth?.detail || "The Pharmacist login response did not contain a valid access token.");
+      }
+
+      localStorage.setItem("pharmacist_access_token", pharmacistAuth.access);
       const pharmacistData = {
         user_id: response.user_id,
         username: response.username || username,
