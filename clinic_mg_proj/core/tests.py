@@ -185,6 +185,61 @@ class CommonLoginAPITests(TestCase):
         self.assertEqual(session.get("user_id"), self.user_doctor.user_id)
         self.assertEqual(session.get("doctor_id"), self.doctor.doctor_id)
 
+    def test_doctor_login_requires_active_user_role_staff_and_doctor_profile(self):
+        cases = (
+            (self.user_doctor, "is_active"),
+            (self.user_doctor.role, "is_active"),
+            (self.staff_doctor, "is_active"),
+            (self.doctor, "is_active"),
+        )
+        for instance, field in cases:
+            with self.subTest(model=instance.__class__.__name__):
+                setattr(instance, field, False)
+                instance.save(update_fields=[field])
+                response = self.client.post("/api/login/", {
+                    "username": "doctor_user", "password": "password123",
+                })
+                self.assertEqual(response.status_code, 403)
+                setattr(instance, field, True)
+                instance.save(update_fields=[field])
+
+    def test_existing_doctor_tokens_are_rejected_after_staff_role_or_doctor_is_disabled(self):
+        login = self.client.post("/api/login/", {
+            "username": "doctor_user", "password": "password123",
+        })
+        self.assertEqual(login.status_code, 200)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
+        cases = (self.role_doctor, self.staff_doctor, self.doctor)
+        for instance in cases:
+            with self.subTest(model=instance.__class__.__name__):
+                instance.is_active = False
+                instance.save(update_fields=["is_active"])
+                response = self.client.get(f"/doctor/dashboard/{self.doctor.doctor_id}/")
+                self.assertEqual(response.status_code, 401)
+                instance.is_active = True
+                instance.save(update_fields=["is_active"])
+        self.client.credentials()
+
+    def test_existing_doctor_token_is_bound_to_its_specific_profile(self):
+        login = self.client.post("/api/login/", {
+            "username": "doctor_user", "password": "password123",
+        })
+        self.assertEqual(login.status_code, 200)
+        self.assertEqual(login.data["doctor_id"], self.doctor.doctor_id)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
+
+        another_profile = Doctor.objects.create(
+            staff=self.staff_doctor, specialization=self.spec, department=self.dept,
+            consultation_fee=Decimal("150.00"), qualification="MD", experience_years=20,
+            license_number="DOC-SECOND-PROFILE", is_active=True,
+        )
+        self.doctor.is_active = False
+        self.doctor.save(update_fields=["is_active"])
+        self.assertTrue(another_profile.is_active)
+        response = self.client.get("/doctor/medicines/")
+        self.assertEqual(response.status_code, 401)
+        self.client.credentials()
+
     # -----------------------------------------------------------
     # C. Valid Pharmacist Credentials
     # -----------------------------------------------------------

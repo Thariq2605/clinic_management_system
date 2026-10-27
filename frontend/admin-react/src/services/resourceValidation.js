@@ -5,7 +5,11 @@ export function validateResourceField(field, value, values = {}) {
   const text = typeof value === 'string' ? value : value == null ? '' : String(value);
   const trimmed = text.trim();
   if (field.required && !trimmed) return `${field.label} is required.`;
+  if (field.type === 'password' && text && !trimmed) return 'Password cannot contain only whitespace.';
   if (!trimmed) return '';
+  if (field.type === 'password' && text.length < (field.minLength || 8)) return `Password must contain at least ${field.minLength || 8} characters.`;
+  if (field.validation === 'username' && (trimmed.length > 50 || !/^[^\s]+$/.test(trimmed))) return 'Enter a username of 1 to 50 characters without spaces.';
+  if (field.validation === 'weekday' && (!Number.isInteger(Number(text)) || Number(text) < 0 || Number(text) > 6)) return 'Choose a weekday from Monday through Sunday.';
   if (field.validation === 'mobile' && !MOBILE_PATTERN.test(text)) return 'Enter a 10-digit mobile number beginning with 6, 7, 8, or 9.';
   if (field.type === 'email' && !EMAIL_PATTERN.test(trimmed)) return 'Enter a valid email address.';
   if (field.validation === 'date-of-birth') {

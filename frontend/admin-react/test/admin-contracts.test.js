@@ -88,6 +88,57 @@ test('resource validation catches required fields and normalizes names before su
   assert.deepEqual(normalizeResourceValues(fields, { full_name: '  Ada Lovelace-O’Connor  ', department: ' 4 ' }), { full_name: 'Ada Lovelace-O’Connor', department: '4' });
   assert.match(validateResourceField({ name: 'password', label: 'Password', required: true, type: 'password' }, ''), /required/i);
   assert.equal(validateResourceField({ name: 'password', label: 'New password', required: false, type: 'password' }, ''), '');
+  assert.match(validateResourceField({ name: 'password', label: 'Password', required: true, type: 'password', minLength: 8 }, 'short'), /at least 8/i);
+  assert.match(validateResourceField({ name: 'password', label: 'Password', required: false, type: 'password', minLength: 8 }, '        '), /whitespace/i);
+});
+
+test('doctor availability uses the supported endpoint, numeric Monday-zero weekdays, validation, and editable row actions', async () => {
+  const resources = await readFile(new URL('../src/services/resources.jsx', import.meta.url), 'utf8');
+  const pages = await readFile(new URL('../src/pages/ResourcePages.jsx', import.meta.url), 'utf8');
+  const resourcePage = await readFile(new URL('../src/components/ResourcePage.jsx', import.meta.url), 'utf8');
+  assert.match(resources, /endpoint: '\/api\/admin\/doctor-availability\/'/);
+  for (const field of ['doctor', 'weekday', 'start_time', 'end_time', 'is_active']) assert.ok(resources.includes(`'${field}'`));
+  assert.match(resources, /value: 0, label: 'Monday'.*[\s\S]*value: 6, label: 'Sunday'/);
+  assert.match(resources, /validation: 'weekday', coerce: 'number'/);
+  assert.match(pages, /resources\.doctorAvailability\} allowDelete=\{false\}/);
+  assert.match(resourcePage, /actions=\{rowActions \?/);
+  assert.match(resourcePage, /allowDelete &&/);
+  assert.match(resourcePage, /toggleStatus\(row\)/);
+  assert.equal(validateResourceField({ name: 'weekday', label: 'Weekday', required: true, validation: 'weekday' }, '6'), '');
+  for (const value of ['-1', '7', '1.5']) assert.match(validateResourceField({ name: 'weekday', label: 'Weekday', required: true, validation: 'weekday' }, value), /weekday/i);
+  assert.deepEqual(buildResourcePayload([{ name: 'weekday', coerce: 'number' }], { weekday: '4' }, 'create'), { weekday: 4 });
+  const timeFields = [{ name: 'start_time', label: 'Start time', required: true, type: 'time' }, { name: 'end_time', label: 'End time', required: true, type: 'time' }];
+  assert.match(validateResource(timeFields, { start_time: '17:00', end_time: '09:00' }).end_time, /later/i);
+});
+
+test('Doctor administration creates linked accounts and clearly routes contact editing to Staff', async () => {
+  const resources = await readFile(new URL('../src/services/resources.jsx', import.meta.url), 'utf8');
+  const pages = await readFile(new URL('../src/pages/ResourcePages.jsx', import.meta.url), 'utf8');
+  const profile = await readFile(new URL('../src/pages/DoctorProfilePanel.jsx', import.meta.url), 'utf8');
+  assert.match(resources, /doctors:\s*\{/);
+  for (const field of ['full_name', 'username', 'password', 'gender', 'dob', 'account_email', 'account_mobile_number', 'department', 'specialization', 'consultation_fee', 'qualification', 'experience_years', 'license_number']) assert.ok(resources.includes(`'${field}'`));
+  assert.match(resources, /type: 'password', minLength: 8, validation: 'password'/);
+  assert.match(resources, /effective_access_active/);
+  assert.match(pages, /ambiguousCreateMessage/);
+  assert.match(pages, /detailRenderer=\{\(row, onSaved\) => <DoctorProfilePanel row=\{row\} onSaved=\{onSaved\} \/>\}/);
+  assert.match(profile, /\/api\/admin\/staff\/\$\{row\.staff_id\}\//);
+  assert.match(profile, /Save Staff contact/);
+  assert.match(profile, /Doctor, Staff, User, and Role status are independent/);
+  assert.match(profile, /User and Doctor status were not changed/);
+});
+
+test('Vite preserves shared login assets and the Auth Handoff contract', async () => {
+  const vite = await readFile(new URL('../vite.config.js', import.meta.url), 'utf8');
+  const readme = await readFile(new URL('../README.md', import.meta.url), 'utf8');
+  const handoff = await readFile(new URL('../public/auth-handoff.js', import.meta.url), 'utf8');
+  const legacyLogin = await readFile(new URL('../../login.html', import.meta.url), 'utf8');
+  assert.match(vite, /\['\/login\.html', path\.join\(frontendRoot, 'login\.html'\)\]/);
+  for (const asset of ['/js/api.js', '/js/common.js', '/js/auth.js', '/css/style.css', '/css/login.css']) assert.ok(vite.includes(asset));
+  assert.match(readme, /pages\/admin_dashboard\.html/);
+  assert.match(handoff, /CLINIC_AUTH_READY/);
+  assert.match(handoff, /CLINIC_AUTH_PAYLOAD/);
+  assert.match(handoff, /api\/admin\/me/);
+  assert.match(legacyLogin, /login\.html|login-form/);
 });
 
 test('React router declares each requested Admin route', async () => {

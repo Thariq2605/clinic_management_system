@@ -15,6 +15,16 @@ export const loadDepartmentsAndStaff = async () => {
     specializations: list(specializations).map((x) => ({ value: x.specialization_id, label: x.specialization_name })),
   };
 };
+export const loadDoctorFormOptions = async () => {
+  const [departments, specializations] = await Promise.all([
+    adminApi.get('/api/admin/departments/'), adminApi.get('/api/admin/specializations/'),
+  ]);
+  const list = (value) => Array.isArray(value) ? value : value?.results || [];
+  return {
+    departments: list(departments).map((item) => ({ value: item.department_id, label: item.department_name })),
+    specializations: list(specializations).map((item) => ({ value: item.specialization_id, label: item.specialization_name })),
+  };
+};
 export const loadDoctors = async () => {
   const rows = await adminApi.get('/api/admin/doctors/');
   return { doctors: (Array.isArray(rows) ? rows : rows?.results || []).map((r) => ({ value: r.doctor_id, label: r.doctor_name })) };
@@ -30,7 +40,7 @@ export const resources = {
     title: 'Users', description: 'Manage accounts and their system roles.', endpoint: '/api/admin/users/', idKey: 'user_id', searchHint: 'Search username…', loadDependencies: loadRoles,
     filters: [{ name: 'role', label: 'Roles', optionsFrom: 'roles' }, { name: 'status', label: 'Status', options: ['active', 'inactive'] }],
     columns: [{ key: 'username', label: 'Username' }, { key: 'role_name', label: 'Role' }, statusColumn],
-    fields: [{ ...text('username', 'Username'), validation: 'username', maxLength: 50 }, select('role', 'Role', 'roles'), { ...text('password', 'Password', true, { type: 'password', autoComplete: 'new-password', createOnly: true }) }, { ...text('password', 'New password (leave blank to keep current)', false, { type: 'password', autoComplete: 'new-password', editOnly: true, omitEmpty: true }) }, active],
+    fields: [{ ...text('username', 'Username'), validation: 'username', maxLength: 50 }, select('role', 'Role', 'roles'), { ...text('password', 'Password', true, { type: 'password', minLength: 8, validation: 'password', helpText: 'At least 8 characters. The server also rejects common, all-numeric, or username-like passwords.', autoComplete: 'new-password', createOnly: true }) }, { ...text('password', 'New password (leave blank to keep current)', false, { type: 'password', minLength: 8, validation: 'password', helpText: 'Leave blank to keep the current password. New passwords must meet the server policy.', autoComplete: 'new-password', editOnly: true, omitEmpty: true }) }, active],
   },
   roles: {
     title: 'Roles', description: 'Manage role records used by user accounts.', endpoint: '/api/admin/roles/', idKey: 'role_id',
@@ -45,21 +55,43 @@ export const resources = {
     title: 'Specializations', description: 'Manage doctor specializations.', endpoint: '/api/admin/specializations/', idKey: 'specialization_id', columns: [{ key: 'specialization_name', label: 'Specialization' }, { key: 'doctor_count', label: 'Active doctors' }],
     fields: [text('specialization_name', 'Specialization name')],
   },
-  staff: {
-    title: 'Doctors', description: 'Manage doctor records and their staff associations.', endpoint: '/api/admin/doctors/', idKey: 'doctor_id', searchHint: 'Search doctor, license, or qualification…', loadDependencies: loadDepartmentsAndStaff,
-    filters: [{ name: 'department', label: 'Department', optionsFrom: 'departments' }, { name: 'status', label: 'Status', options: ['active', 'inactive'] }], columns: [{ key: 'doctor_name', label: 'Doctor' }, { key: 'department_name', label: 'Department' }, { key: 'specialization_name', label: 'Specialization' }, { key: 'consultation_fee', label: 'Consultation fee' }, statusColumn],
-    fields: [select('staff', 'Staff member', 'staff'), select('department', 'Department', 'departments'), select('specialization', 'Specialization', 'specializations'), { ...text('consultation_fee', 'Consultation fee', true, { type: 'number', min: 0, step: '0.01', maxDigits: 10, decimalPlaces: 2 }) }, { ...text('qualification', 'Qualification'), maxLength: 100 }, { ...text('experience_years', 'Years of experience', true, { type: 'number', min: 0, integer: true }) }, { ...text('license_number', 'License number'), maxLength: 50 }, active],
+  doctors: {
+    title: 'Doctors', description: 'Create a Doctor login, Staff identity, and Doctor profile together in one atomic request. Contact details are edited from View profile. Initial active status applies to the new linked records; later status controls remain independent.', endpoint: '/api/admin/doctors/', idKey: 'doctor_id', searchHint: 'Search doctor, username, license, or qualification…', loadDependencies: loadDoctorFormOptions,
+    filters: [{ name: 'department', label: 'Department', optionsFrom: 'departments' }, { name: 'status', label: 'Doctor profile status', options: ['active', 'inactive'] }], columns: [
+      { key: 'doctor_name', label: 'Doctor' }, { key: 'staff_id', label: 'Staff ID' }, { key: 'user_id', label: 'User ID' }, { key: 'username_display', label: 'Username' }, { key: 'email', label: 'Email' }, { key: 'mobile_number', label: 'Mobile' },
+      { key: 'department_name', label: 'Department' }, { key: 'specialization_name', label: 'Specialization' }, { key: 'consultation_fee', label: 'Consultation fee' },
+      { key: 'is_active', label: 'Doctor profile', render: (value) => <span className={`badge ${value ? 'green' : 'gray'}`}>{value ? 'Active' : 'Inactive'}</span> },
+      { key: 'staff_active', label: 'Staff', render: (value) => <span className={`badge ${value ? 'green' : 'gray'}`}>{value ? 'Active' : 'Inactive'}</span> },
+      { key: 'user_active', label: 'User', render: (value) => <span className={`badge ${value ? 'green' : 'gray'}`}>{value ? 'Active' : 'Inactive'}</span> },
+      { key: 'role_active', label: 'Role', render: (value) => <span className={`badge ${value ? 'green' : 'gray'}`}>{value ? 'Active' : 'Inactive'}</span> },
+      { key: 'effective_access_active', label: 'Effective access', render: (value) => <span className={`badge ${value ? 'green' : 'red'}`}>{value ? 'Can sign in' : 'Blocked'}</span> },
+    ],
+    fields: [
+      { ...text('full_name', 'Doctor name'), maxLength: 100, createOnly: true },
+      { ...text('username', 'Username', true, { validation: 'username', maxLength: 50 }), createOnly: true },
+      { ...text('password', 'Initial password', true, { type: 'password', minLength: 8, validation: 'password', helpText: 'At least 8 characters. The server also rejects common, all-numeric, or username-like passwords.', autoComplete: 'new-password' }), createOnly: true },
+      { name: 'gender', label: 'Gender', type: 'select', required: true, options: ['Male', 'Female', 'Other'], createOnly: true },
+      { ...text('dob', 'Date of birth', true, { type: 'date', validation: 'date-of-birth' }), createOnly: true },
+      { ...text('account_email', 'Email', true, { type: 'email', maxLength: 100 }), createOnly: true },
+      { ...text('account_mobile_number', 'Phone number', true, { type: 'tel', maxLength: 10, validation: 'mobile' }), createOnly: true },
+      select('department', 'Department', 'departments'), select('specialization', 'Specialization', 'specializations'),
+      { ...text('consultation_fee', 'Consultation fee', true, { type: 'number', min: 0, step: '0.01', maxDigits: 10, decimalPlaces: 2 }) },
+      { ...text('qualification', 'Qualification'), maxLength: 100 },
+      { ...text('experience_years', 'Years of experience', true, { type: 'number', min: 0, integer: true }) },
+      { ...text('license_number', 'License number'), maxLength: 50 },
+      { ...active, label: 'Initial account active' },
+    ],
   },
   doctorAvailability: {
     title: 'Doctor availability', description: 'Maintain recurring weekly working intervals. Doctors without an active interval cannot be booked.',
     endpoint: '/api/admin/doctor-availability/', idKey: 'availability_id', loadDependencies: loadDoctors,
     columns: [{ key: 'doctor_name', label: 'Doctor' }, { key: 'weekday_name', label: 'Weekday' }, { key: 'start_time', label: 'Starts' }, { key: 'end_time', label: 'Ends' }, statusColumn],
-    fields: [select('doctor', 'Doctor', 'doctors'), { name: 'weekday', label: 'Weekday', type: 'select', required: true, options: [{ value: 0, label: 'Monday' }, { value: 1, label: 'Tuesday' }, { value: 2, label: 'Wednesday' }, { value: 3, label: 'Thursday' }, { value: 4, label: 'Friday' }, { value: 5, label: 'Saturday' }, { value: 6, label: 'Sunday' }] }, { ...text('start_time', 'Start time', true, { type: 'time' }) }, { ...text('end_time', 'End time', true, { type: 'time' }) }, active],
+    fields: [select('doctor', 'Doctor', 'doctors'), { name: 'weekday', label: 'Weekday', type: 'select', required: true, validation: 'weekday', coerce: 'number', options: [{ value: 0, label: 'Monday' }, { value: 1, label: 'Tuesday' }, { value: 2, label: 'Wednesday' }, { value: 3, label: 'Thursday' }, { value: 4, label: 'Friday' }, { value: 5, label: 'Saturday' }, { value: 6, label: 'Sunday' }] }, { ...text('start_time', 'Start time', true, { type: 'time' }) }, { ...text('end_time', 'End time', true, { type: 'time' }) }, active],
   },
   receptionists: {
     title: 'Receptionists', description: 'Manage receptionist staff accounts and their active status.', endpoint: '/api/admin/staff/', idKey: 'staff_id', searchHint: 'Search name, email, or mobile…', baseParams: { role: 'Receptionist' }, loadDependencies: async () => { const [roles, other] = await Promise.all([loadRoles(), adminApi.get('/api/admin/departments/')]); const ds = Array.isArray(other) ? other : other?.results || []; return { ...roles, departments: ds.map((d) => ({ value: d.department_id, label: d.department_name })) }; },
     filters: [{ name: 'status', label: 'Status', options: ['active', 'inactive'] }], columns: [{ key: 'full_name', label: 'Name' }, { key: 'role_name', label: 'Role' }, { key: 'department_name', label: 'Department' }, { key: 'mobile_number', label: 'Mobile' }, statusColumn],
-    fields: [{ ...text('username', 'Username', true, { createOnly: true, maxLength: 50 }) }, text('password', 'Initial password', true, { type: 'password', autoComplete: 'new-password', createOnly: true }), { ...text('full_name', 'Full name'), maxLength: 100 }, { name: 'gender', label: 'Gender', type: 'select', required: true, options: ['Male', 'Female', 'Other'] }, { ...text('dob', 'Date of birth', true, { type: 'date', validation: 'date-of-birth' }) }, { ...text('mobile_number', 'Mobile number', true, { type: 'tel', maxLength: 10, validation: 'mobile' }) }, { ...text('email', 'Email', true, { type: 'email', maxLength: 100 }) }, select('department', 'Department', 'departments'), { ...select('role', 'Role', 'roles'), createOnly: true }, active],
+    fields: [{ ...text('username', 'Username', true, { createOnly: true, maxLength: 50 }) }, { ...text('password', 'Initial password', true, { type: 'password', minLength: 8, validation: 'password', helpText: 'At least 8 characters. The server also rejects common, all-numeric, or username-like passwords.', autoComplete: 'new-password', createOnly: true }) }, { ...text('full_name', 'Full name'), maxLength: 100 }, { name: 'gender', label: 'Gender', type: 'select', required: true, options: ['Male', 'Female', 'Other'] }, { ...text('dob', 'Date of birth', true, { type: 'date', validation: 'date-of-birth' }) }, { ...text('mobile_number', 'Mobile number', true, { type: 'tel', maxLength: 10, validation: 'mobile' }) }, { ...text('email', 'Email', true, { type: 'email', maxLength: 100 }) }, select('department', 'Department', 'departments'), { ...select('role', 'Role', 'roles'), createOnly: true }, active],
   },
   patients: {
     title: 'Patients', description: 'Review and maintain patient demographic records.', endpoint: '/api/admin/patients/', idKey: 'patient_id', searchHint: 'Search name, mobile, or email…',

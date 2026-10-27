@@ -1,13 +1,14 @@
 import ResourcePage from '../components/ResourcePage.jsx';
 import { loadDoctors, resources } from '../services/resources.jsx';
 import PatientProfilePanel from './PatientProfilePanel.jsx';
+import DoctorProfilePanel from './DoctorProfilePanel.jsx';
 
 export function UsersPage() { return <ResourcePage {...resources.users} />; }
 export function RolesPage() { return <ResourcePage {...resources.roles} />; }
 export function DepartmentsPage() { return <ResourcePage {...resources.departments} />; }
 export function SpecializationsPage() { return <ResourcePage {...resources.specializations} />; }
-export function DoctorsPage() { return <ResourcePage {...resources.staff} />; }
-export function DoctorAvailabilityPage() { return <ResourcePage {...resources.doctorAvailability} rowActions={false} />; }
+export function DoctorsPage() { return <ResourcePage {...resources.doctors} detailRenderer={(row, onSaved) => <DoctorProfilePanel row={row} onSaved={onSaved} />} ambiguousCreateMessage="The request may have reached the server. Check this Doctor list for the username before retrying; the API prevents duplicate usernames." />; }
+export function DoctorAvailabilityPage() { return <ResourcePage {...resources.doctorAvailability} allowDelete={false} />; }
 export function ReceptionistsPage() { return <ResourcePage {...resources.receptionists} />; }
 export function PatientsPage() { return <ResourcePage {...resources.patients} detailRenderer={(row) => <PatientProfilePanel id={row.patient_id} />}/>; }
 export function MedicinesPage() { return <ResourcePage {...resources.medicines} />; }

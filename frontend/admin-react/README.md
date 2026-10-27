@@ -12,6 +12,8 @@ The Admin guard validates the stored Admin token against `GET /api/admin/me/` be
 
 For deployment, configure the Admin app and Shared Login with the deployment's central login URL and route the existing `/pages/admin_dashboard.html` handoff to the React Admin app as required by the host.
 
+See [LEGACY_ADMIN_REVIEW.md](./LEGACY_ADMIN_REVIEW.md) for the source-level inventory of shared login, handoff, legacy Admin, and rollback dependencies.
+
 ## Implemented API areas
 
 The app uses Admin APIs under `/api/admin/`. Appointment, bill, and payment endpoints are read-only on the server as well as in the UI; Receptionist operations remain the supported booking and payment mutation workflows because they apply the clinic's validation and transactional rules.

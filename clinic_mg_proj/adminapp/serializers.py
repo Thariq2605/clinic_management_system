@@ -1,4 +1,9 @@
 from datetime import date
+import re
+from django.contrib.auth.password_validation import validate_password as django_validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.validators import validate_email as django_validate_email
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -24,6 +29,13 @@ from core.models import (
 )
 
 
+def validate_account_password(password, user):
+    try:
+        django_validate_password(password, user)
+    except DjangoValidationError as error:
+        raise serializers.ValidationError({"password": error.messages})
+
+
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Role
@@ -33,7 +45,7 @@ class RoleSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     role_name = serializers.CharField(source="role.role_name", read_only=True)
-    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True, trim_whitespace=False)
 
     class Meta:
         model = User
@@ -46,11 +58,26 @@ class UserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Username is required.")
         if len(value) > 50:
             raise serializers.ValidationError("Username cannot exceed 50 characters.")
+        duplicates = User.objects.filter(username__iexact=value)
+        if self.instance:
+            duplicates = duplicates.exclude(pk=self.instance.pk)
+        if duplicates.exists():
+            raise serializers.ValidationError("A user with this username already exists.")
         return value
 
     def validate(self, attrs):
-        if self.instance is None and not attrs.get("password"):
+        password = attrs.get("password")
+        if password is not None and password and not password.strip():
+            raise serializers.ValidationError({"password": "Password cannot contain only whitespace."})
+        if self.instance is None and not password:
             raise serializers.ValidationError({"password": "Password is required when creating an account."})
+        if password:
+            candidate = self.instance or User(
+                username=attrs.get("username", ""), role=attrs.get("role"),
+            )
+            if self.instance and "username" in attrs:
+                candidate.username = attrs["username"]
+            validate_account_password(password, candidate)
         return attrs
 
     def create(self, validated_data):
@@ -64,7 +91,7 @@ class UserSerializer(serializers.ModelSerializer):
         password = validated_data.pop("password", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        if password:
+        if password is not None and password != "":
             instance.set_password(password)
         instance.save()
         return instance
@@ -96,7 +123,7 @@ class SpecializationSerializer(serializers.ModelSerializer):
 
 class StaffSerializer(serializers.ModelSerializer):
     username = serializers.CharField(write_only=True, required=False)
-    password = serializers.CharField(write_only=True, required=False)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True, trim_whitespace=False)
     role = serializers.PrimaryKeyRelatedField(
         queryset=Role.objects.all(),
         write_only=True,
@@ -130,13 +157,13 @@ class StaffSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Username is required when creating a staff account.")
         if len(value) > 50:
             raise serializers.ValidationError("Username cannot exceed 50 characters.")
-        if self.instance is None and User.objects.filter(username=value).exists():
+        if self.instance is None and User.objects.filter(username__iexact=value).exists():
             raise serializers.ValidationError("A user with this username already exists.")
         return value
 
     def validate_password(self, value):
-        if self.instance is None and not value:
-            raise serializers.ValidationError("Password is required when creating a staff account.")
+        if value and not value.strip():
+            raise serializers.ValidationError("Password cannot contain only whitespace.")
         return value
 
     def validate_full_name(self, value):
@@ -170,16 +197,35 @@ class StaffSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({"username": "Username is required when creating a staff account."})
             if not attrs.get("password"):
                 raise serializers.ValidationError({"password": "Password is required when creating a staff account."})
+        else:
+            doctor_profile = Doctor.objects.filter(staff=self.instance).first()
+            next_department = attrs.get("department", self.instance.department)
+            if doctor_profile and doctor_profile.department_id != next_department.department_id:
+                raise serializers.ValidationError({
+                    "department": "Change this department through Doctor Management so the Doctor and Staff profiles stay aligned."
+                })
+            next_role = attrs.get("role")
+            if doctor_profile and next_role and next_role.role_name.strip().casefold() != "doctor":
+                raise serializers.ValidationError({"role": "A Doctor-linked Staff account must keep the Doctor role."})
+        password = attrs.get("password")
+        if password:
+            user = self.instance.user if self.instance else User(
+                username=attrs.get("username", ""), role=attrs.get("role"),
+            )
+            validate_account_password(password, user)
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
         username = validated_data.pop("username", None)
         password = validated_data.pop("password")
         role = validated_data.pop("role", None)
 
         if not role:
-            # Default to Receptionist role or first role
+            # Preserve the existing Staff API default for callers that omit role.
             role = Role.objects.filter(role_name__iexact="receptionist").first() or Role.objects.first()
+        if role is None:
+            raise serializers.ValidationError({"role": "Create a role before creating a Staff account."})
 
         if not username:
             base_user = validated_data.get("email", "").split("@")[0] or validated_data.get("full_name", "staff").lower().replace(" ", "")
@@ -189,7 +235,8 @@ class StaffSerializer(serializers.ModelSerializer):
                 username = f"{base_user}{suffix}"
                 suffix += 1
 
-        user = User(username=username, role=role, is_active=True)
+        active = validated_data.get("is_active", True)
+        user = User(username=username, role=role, is_active=active)
         user.set_password(password)
         user.save()
 
@@ -209,7 +256,7 @@ class StaffSerializer(serializers.ModelSerializer):
             instance.user.role = role
             instance.user.save()
 
-        if password and instance.user:
+        if password is not None and password != "" and instance.user:
             instance.user.set_password(password)
             instance.user.save()
 
@@ -217,9 +264,12 @@ class StaffSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
 
-        if "is_active" in validated_data and instance.user:
+        # Keep the long-standing Staff/User status behavior for non-Doctor
+        # accounts. Doctor access flags remain independent and are evaluated
+        # together by Doctor login and the Admin effective-status display.
+        if "is_active" in validated_data and instance.user and not Doctor.objects.filter(staff=instance).exists():
             instance.user.is_active = validated_data["is_active"]
-            instance.user.save()
+            instance.user.save(update_fields=["is_active"])
 
         return instance
 
@@ -251,11 +301,28 @@ class ReceptionistSerializer(serializers.ModelSerializer):
 
 
 class DoctorSerializer(serializers.ModelSerializer):
+    # Account and Staff fields are accepted only when creating a linked Doctor.
+    username = serializers.CharField(write_only=True, required=False, max_length=50)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True, trim_whitespace=False)
+    full_name = serializers.CharField(write_only=True, required=False, max_length=100)
+    gender = serializers.ChoiceField(choices=["Male", "Female", "Other"], write_only=True, required=False)
+    dob = serializers.DateField(write_only=True, required=False)
+    account_email = serializers.EmailField(write_only=True, required=False, max_length=100)
+    account_mobile_number = serializers.CharField(write_only=True, required=False, max_length=15)
     doctor_name = serializers.SerializerMethodField()
     department_name = serializers.CharField(source="department.department_name", read_only=True)
     specialization_name = serializers.CharField(source="specialization.specialization_name", read_only=True)
+    staff_id = serializers.IntegerField(source="staff.staff_id", read_only=True)
+    staff_name = serializers.CharField(source="staff.full_name", read_only=True)
+    user_id = serializers.IntegerField(source="staff.user.user_id", read_only=True)
     email = serializers.CharField(source="staff.email", read_only=True)
     mobile_number = serializers.CharField(source="staff.mobile_number", read_only=True)
+    username_display = serializers.CharField(source="staff.user.username", read_only=True)
+    staff_active = serializers.BooleanField(source="staff.is_active", read_only=True)
+    user_active = serializers.BooleanField(source="staff.user.is_active", read_only=True)
+    role_active = serializers.BooleanField(source="staff.user.role.is_active", read_only=True)
+    effective_access_active = serializers.SerializerMethodField()
+    staff = serializers.PrimaryKeyRelatedField(queryset=Staff.objects.select_related("user__role", "department"), required=False)
 
     class Meta:
         model = Doctor
@@ -263,6 +330,10 @@ class DoctorSerializer(serializers.ModelSerializer):
             "doctor_id",
             "staff",
             "doctor_name",
+            "staff_id",
+            "user_id",
+            "staff_name",
+            "username_display",
             "specialization",
             "specialization_name",
             "department",
@@ -273,6 +344,17 @@ class DoctorSerializer(serializers.ModelSerializer):
             "license_number",
             "email",
             "mobile_number",
+            "staff_active",
+            "user_active",
+            "role_active",
+            "effective_access_active",
+            "username",
+            "password",
+            "full_name",
+            "gender",
+            "dob",
+            "account_email",
+            "account_mobile_number",
             "is_active",
         ]
         read_only_fields = [
@@ -280,12 +362,125 @@ class DoctorSerializer(serializers.ModelSerializer):
             "doctor_name",
             "department_name",
             "specialization_name",
+            "staff_id",
+            "user_id",
+            "staff_name",
+            "username_display",
             "email",
             "mobile_number",
+            "staff_active",
+            "user_active",
+            "role_active",
+            "effective_access_active",
         ]
 
     def get_doctor_name(self, obj):
         return obj.staff.full_name if obj.staff else "Doctor"
+
+    def get_effective_access_active(self, obj):
+        user = obj.staff.user if obj.staff_id and obj.staff.user_id else None
+        return bool(obj.is_active and obj.staff.is_active and user and user.is_active and user.role_id and user.role.is_active)
+
+    def validate_username(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Username is required.")
+        if User.objects.filter(username__iexact=value).exists():
+            raise serializers.ValidationError("A user with this username already exists.")
+        return value
+
+    def validate_password(self, value):
+        if value and not value.strip():
+            raise serializers.ValidationError("Password cannot contain only whitespace.")
+        return value
+
+    def validate_account_mobile_number(self, value):
+        value = value.strip()
+        if not re.fullmatch(r"[6-9][0-9]{9}", value):
+            raise serializers.ValidationError("Enter a 10-digit mobile number beginning with 6, 7, 8, or 9.")
+        return value
+
+    def validate(self, attrs):
+        account_fields = {
+            "username", "password", "full_name", "gender", "dob",
+            "account_email", "account_mobile_number",
+        }
+        if self.instance is not None and account_fields.intersection(attrs):
+            raise serializers.ValidationError({
+                "staff": "Edit linked identity and contact details through the Staff profile workflow."
+            })
+        staff = attrs.get("staff", getattr(self.instance, "staff", None))
+        department = attrs.get("department", getattr(self.instance, "department", None))
+        if self.instance is None and staff is None:
+            required = ("username", "password", "full_name", "gender", "dob", "account_email", "account_mobile_number")
+            missing = [field for field in required if not attrs.get(field)]
+            if missing:
+                raise serializers.ValidationError({field: "This field is required to create a Doctor account." for field in missing})
+            if attrs.get("password"):
+                validate_account_password(attrs["password"], User(username=attrs.get("username", "")))
+        elif staff is not None:
+            user = staff.user
+            role_name = user.role.role_name.strip().casefold() if user.role_id else ""
+            if role_name != "doctor":
+                raise serializers.ValidationError({"staff": "Doctor profiles can only be linked to Staff with the Doctor role."})
+            if not staff.is_active or not user.is_active or not user.role.is_active:
+                raise serializers.ValidationError({"staff": "The linked User, role, and Staff account must all be active."})
+            if department and staff.department_id != department.department_id and (self.instance is None or "staff" in attrs):
+                raise serializers.ValidationError({"department": "Doctor and Staff departments must match."})
+            duplicates = Doctor.objects.filter(staff=staff)
+            if self.instance:
+                duplicates = duplicates.exclude(pk=self.instance.pk)
+            if duplicates.exists():
+                raise serializers.ValidationError({"staff": "This Staff member already has a Doctor profile."})
+        if department is None:
+            raise serializers.ValidationError({"department": "Department is required."})
+        if not department.is_active:
+            raise serializers.ValidationError({"department": "Select an active department."})
+        if self.instance is None and staff is None and not Role.objects.filter(role_name__iexact="Doctor", is_active=True).exists():
+            raise serializers.ValidationError({"role": "An active Doctor role must exist before creating a Doctor account."})
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        staff = validated_data.pop("staff", None)
+        if staff is None:
+            username = validated_data.pop("username")
+            password = validated_data.pop("password")
+            full_name = validated_data.pop("full_name")
+            gender = validated_data.pop("gender")
+            dob = validated_data.pop("dob")
+            email = validated_data.pop("account_email")
+            mobile_number = validated_data.pop("account_mobile_number")
+            active = validated_data.get("is_active", True)
+            role = Role.objects.filter(role_name__iexact="Doctor", is_active=True).first()
+            if role is None:
+                raise serializers.ValidationError({"role": "An active Doctor role must exist before creating a Doctor account."})
+            user = User(username=username, role=role, is_active=active)
+            user.set_password(password)
+            user.save()
+            staff = Staff.objects.create(
+                user=user, full_name=full_name.strip(), gender=gender, dob=dob,
+                mobile_number=mobile_number.strip(), email=email.strip(),
+                department=validated_data["department"], is_active=active,
+            )
+        else:
+            # Validation happens before create() opens its transaction. Lock the
+            # existing Staff row and recheck here so concurrent requests for
+            # the same Staff member serialize on MySQL/InnoDB.
+            staff = Staff.objects.select_for_update().get(pk=staff.pk)
+            if Doctor.objects.filter(staff=staff).exists():
+                raise serializers.ValidationError({
+                    "staff": "This Staff member already has a Doctor profile."
+                })
+        return Doctor.objects.create(staff=staff, **validated_data)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        department = validated_data.get("department")
+        if department is not None and instance.staff.department_id != department.department_id:
+            instance.staff.department = department
+            instance.staff.save(update_fields=["department"])
+        return super().update(instance, validated_data)
 
     def validate_consultation_fee(self, value):
         if value < 0:
@@ -345,10 +540,6 @@ class MedicineSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Quantity cannot be negative.")
         return value
 
-
-import re
-from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.validators import validate_email as django_validate_email
 
 VALID_GENDERS = ["Male", "Female", "Other"]
 VALID_BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
@@ -554,6 +745,10 @@ class DoctorAvailabilitySerializer(serializers.ModelSerializer):
         start = attrs.get("start_time", getattr(self.instance, "start_time", None))
         end = attrs.get("end_time", getattr(self.instance, "end_time", None))
         active = attrs.get("is_active", getattr(self.instance, "is_active", True))
+        if doctor and active:
+            user = doctor.staff.user
+            if not doctor.is_active or not doctor.staff.is_active or not user.is_active or not user.role.is_active:
+                raise serializers.ValidationError({"doctor": "Choose a Doctor whose profile, Staff, User, and role are active."})
         if start is not None and end is not None and start >= end:
             raise serializers.ValidationError({"end_time": "End time must be after start time."})
         if doctor and weekday is not None and active:
