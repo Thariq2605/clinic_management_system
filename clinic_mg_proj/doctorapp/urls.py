@@ -18,7 +18,8 @@ from .views import (
     doctor_medical_history,
     doctor_medical_records,
     doctor_prescriptions,
-    doctor_lab_tests
+    doctor_lab_tests,
+    doctor_lab_results,
 
 
 )
@@ -113,4 +114,5 @@ urlpatterns = [
     path('medical-records/<int:doctor_id>/', doctor_medical_records, name='doctor-medical-records'),
     path('prescriptions/<int:doctor_id>/', doctor_prescriptions, name='doctor-prescriptions'),
     path('lab-test-requests/<int:doctor_id>/', doctor_lab_tests, name='doctor-lab-tests'),
+    path('lab-results/<int:doctor_id>/', doctor_lab_results, name='doctor-lab-results'),
 ]

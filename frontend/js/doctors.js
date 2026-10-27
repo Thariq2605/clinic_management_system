@@ -174,9 +174,7 @@ function renderDoctorsTable(doctors, tbody) {
 }
 
 /**
- * Check and show doctor availability
- * Explicitly displays backend response: doctor_id, consultation_fee,
- * availability_supported (false), availability (null), and message.
+ * Check and show recurring weekly doctor availability from the backend.
  */
 async function openAvailabilityModal(doctorId, doctorName) {
   const modalDoctorName = document.getElementById("avail-doctor-name");
@@ -202,14 +200,16 @@ async function openAvailabilityModal(doctorId, doctorName) {
     if (modalFee) modalFee.textContent = formatCurrency(data.consultation_fee);
     if (modalSupport) {
       modalSupport.innerHTML = data.availability_supported
-        ? `<span class="badge bg-success-subtle text-success">Supported (True)</span>`
-        : `<span class="badge bg-warning-subtle text-warning">Not Supported (False)</span>`;
+        ? `<span class="badge bg-success-subtle text-success">Supported</span>`
+        : `<span class="badge bg-warning-subtle text-warning">Unavailable</span>`;
     }
     if (modalSchedule) {
-      modalSchedule.textContent = data.availability === null ? "None (null)" : JSON.stringify(data.availability);
+      modalSchedule.textContent = Array.isArray(data.weekly_schedule) && data.weekly_schedule.length
+        ? data.weekly_schedule.map((row) => `${row.day}: ${row.start_time}–${row.end_time}`).join("; ")
+        : "No active weekly schedule";
     }
     if (modalMessage) {
-      modalMessage.textContent = data.message || "No doctor schedule model exists in this project.";
+      modalMessage.textContent = `${data.message || "Availability uses the persisted recurring weekly schedule."} Date-specific booked appointment times are shown in the Receptionist booking screen.`;
     }
   } catch (err) {
     console.error("Availability fetch error:", err);

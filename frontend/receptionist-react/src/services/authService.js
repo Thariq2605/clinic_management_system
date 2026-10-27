@@ -1,4 +1,5 @@
 import { clearApiSession, getCsrfToken, receptionistApi } from './api';
+import { clearReceptionistAuth } from './authStorage.js';
 
 const USER_KEY = 'receptionist_user';
 export const getStoredUser = () => {
@@ -23,13 +24,9 @@ export async function login(username, password) {
 
 export async function logout() {
   try { await receptionistApi.post('/logout/', {}); }
-  finally {
-    sessionStorage.removeItem(USER_KEY);
-    clearApiSession();
-  }
+  finally { clearLocalAuth(); }
 }
 
 export function clearLocalAuth() {
-  sessionStorage.removeItem(USER_KEY);
-  clearApiSession();
+  clearReceptionistAuth(sessionStorage, clearApiSession);
 }

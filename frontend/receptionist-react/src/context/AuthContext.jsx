@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { clearLocalAuth, login as loginRequest, logout as logoutRequest, validateSession } from '../services/authService';
+import { resolveSharedLoginUrl } from '../services/sharedLogin.js';
 
 const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
@@ -17,12 +18,14 @@ export function AuthProvider({ children }) {
         if (!active) return;
         clearLocalAuth();
         setUser(null);
-        if (error?.status !== 401 && error?.status !== 403) {
+        if (error?.status === 401 || error?.status === 403) {
+          window.location.replace(resolveSharedLoginUrl(import.meta.env.VITE_SHARED_LOGIN_URL, import.meta.env.DEV));
+        } else {
           setSessionError('Unable to verify your receptionist session. Check the backend connection and try again.');
         }
       })
       .finally(() => { if (active) setChecking(false); });
-    const unauthorized = () => { clearLocalAuth(); setUser(null); };
+    const unauthorized = () => { clearLocalAuth(); setUser(null); window.location.replace(resolveSharedLoginUrl(import.meta.env.VITE_SHARED_LOGIN_URL, import.meta.env.DEV)); };
     window.addEventListener('reception:unauthorized', unauthorized);
     return () => { active = false; window.removeEventListener('reception:unauthorized', unauthorized); };
   }, [retryCount]);

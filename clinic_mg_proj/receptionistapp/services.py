@@ -1,46 +1,25 @@
-from datetime import time, timedelta
-from django.conf import settings
+from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 
-from core.models import Appointment, Bill, Doctor
-
-
-# Default working hours: 08:00 AM to 08:00 PM (12-hour period)
-DEFAULT_DOCTOR_WORKING_HOURS_START = time(8, 0)
-DEFAULT_DOCTOR_WORKING_HOURS_END = time(20, 0)
-
-# Doctor working-hours registry: doctor_id -> (start_time, end_time)
-# Configured dynamically for each doctor.
-DOCTOR_WORKING_HOURS = {
-    1: (time(8, 0), time(20, 0)),   # Dr. mohamed thariq: 08:00 AM - 08:00 PM
-    2: (time(10, 0), time(18, 0)),  # Dr. Anu: 10:00 AM - 06:00 PM
-}
+from core.models import Appointment, Bill, Doctor, DoctorAvailability
 
 
 def get_doctor_working_hours(doctor):
-    """
-    Returns (start_time, end_time) for a doctor.
-    Resolution priority:
-    1. Custom attributes on the doctor instance (e.g. doctor.working_hours_start, doctor.working_hours_end)
-    2. settings.DOCTOR_WORKING_HOURS mapping
-    3. DOCTOR_WORKING_HOURS dictionary registry
-    4. Default hours: 08:00 - 20:00
-    """
-    if hasattr(doctor, "working_hours_start") and hasattr(doctor, "working_hours_end"):
-        return doctor.working_hours_start, doctor.working_hours_end
-    if hasattr(doctor, "start_time") and hasattr(doctor, "end_time"):
-        return doctor.start_time, doctor.end_time
+    """Return the first active weekly interval, or (None, None) if unscheduled."""
+    schedule = DoctorAvailability.objects.filter(
+        doctor_id=getattr(doctor, "doctor_id", doctor), is_active=True
+    ).order_by("weekday").first()
+    return (schedule.start_time, schedule.end_time) if schedule else (None, None)
 
-    doc_id = getattr(doctor, "doctor_id", doctor)
-    configured = getattr(settings, "DOCTOR_WORKING_HOURS", {}).get(doc_id)
-    if configured:
-        return configured
 
-    if doc_id in DOCTOR_WORKING_HOURS:
-        return DOCTOR_WORKING_HOURS[doc_id]
-
-    return DEFAULT_DOCTOR_WORKING_HOURS_START, DEFAULT_DOCTOR_WORKING_HOURS_END
+def get_doctor_schedule(doctor, weekday=None):
+    rows = DoctorAvailability.objects.filter(
+        doctor_id=getattr(doctor, "doctor_id", doctor), is_active=True
+    )
+    if weekday is not None:
+        rows = rows.filter(weekday=weekday)
+    return list(rows.order_by("weekday"))
 
 
 def get_doctor_display_name(doctor):
@@ -99,8 +78,23 @@ def create_appointment(*, patient, department_id, doctor_id, appointment_date,
     else:
         raise AppointmentRuleError(f"Invalid appointment type: {appointment_type}.", 400)
 
-    # Doctor Working-Hours Validation (start and end times are inclusive)
-    start_time, end_time = get_doctor_working_hours(doctor)
+    # A persisted active interval is required for the appointment date's weekday.
+    schedule = DoctorAvailability.objects.filter(
+        doctor=doctor, weekday=appointment_date.weekday(), is_active=True,
+        start_time__lte=appointment_time, end_time__gte=appointment_time,
+    ).first()
+    if schedule is None:
+        day_schedules = DoctorAvailability.objects.filter(
+            doctor=doctor, weekday=appointment_date.weekday(), is_active=True
+        ).order_by("start_time")
+        if not day_schedules.exists():
+            raise AppointmentRuleError("Doctor is not available on this weekday.", 400)
+        periods = ", ".join(
+            f"{row.start_time.strftime('%I:%M %p')} - {row.end_time.strftime('%I:%M %p')}"
+            for row in day_schedules
+        )
+        raise AppointmentRuleError(f"Appointment time must be within {get_doctor_display_name(doctor)}'s working hours ({periods}).", 400)
+    start_time, end_time = schedule.start_time, schedule.end_time
     app_time_cmp = appointment_time.replace(second=0, microsecond=0)
     start_time_cmp = start_time.replace(second=0, microsecond=0)
     end_time_cmp = end_time.replace(second=0, microsecond=0)

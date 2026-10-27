@@ -1,13 +1,18 @@
 from datetime import date, time, timedelta
 from decimal import Decimal
+from queue import Queue
+from threading import Barrier, Thread
+from unittest.mock import patch
 
-from django.test import TestCase, override_settings
+from django.db import IntegrityError, close_old_connections
+from django.test import TestCase, TransactionTestCase, override_settings, skipUnlessDBFeature
 from django.urls import include, path
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from core.models import (Appointment, Bill, Department, Doctor, Patient,
+from core.models import (Appointment, Bill, Department, Doctor, DoctorAvailability, Patient,
                          Receptionist, Role, Specialization, Staff, User)
+from receptionistapp.services import create_appointment
 
 app_name = "receptionist_test"
 urlpatterns = [path("api/receptionist/", include("receptionistapp.urls")), path("doctor/", include("doctorapp.urls"))]
@@ -34,6 +39,10 @@ class ReceptionistAPITests(TestCase):
                 specialization_name="General"),
             department=self.department, consultation_fee=Decimal("50.00"),
             qualification="MD", experience_years=10, license_number="LIC-1")
+        DoctorAvailability.objects.bulk_create([
+            DoctorAvailability(doctor=self.doctor, weekday=day, start_time=time(0, 0), end_time=time(23, 59))
+            for day in range(7)
+        ])
         self.when = timezone.localdate() + timedelta(days=1)
         self.client.post("/api/receptionist/login/",
                          {"username": "desk", "password": "secret"})
@@ -82,10 +91,12 @@ class ReceptionistAPITests(TestCase):
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.data[0]["consultation_fee"], "50.00")
 
-    def test_availability_endpoint_reports_missing_schedule_support(self):
+    def test_availability_endpoint_reports_persisted_weekly_schedule(self):
         result = self.client.get(
-            f"/api/receptionist/doctors/{self.doctor.doctor_id}/availability/")
-        self.assertFalse(result.data["availability_supported"])
+            f"/api/receptionist/doctors/{self.doctor.doctor_id}/availability/?date={self.when.isoformat()}")
+        self.assertTrue(result.data["availability_supported"])
+        self.assertTrue(result.data["availability"]["available"])
+        self.assertEqual(len(result.data["weekly_schedule"]), 7)
 
     def test_appointment_token_bill_and_payment_status(self):
         patient = self.make_patient()
@@ -102,6 +113,23 @@ class ReceptionistAPITests(TestCase):
         appointment.refresh_from_db()
         bill.refresh_from_db()
         self.assertEqual((bill.payment_status, appointment.payment_status), ("paid", "Paid"))
+
+    def test_failed_bill_insert_rolls_back_appointment_booking(self):
+        patient = self.make_patient()
+        appointment_count = Appointment.objects.count()
+        with patch.object(Bill.objects, "create", side_effect=IntegrityError("simulated bill failure")):
+            with self.assertRaises(IntegrityError):
+                create_appointment(
+                    patient=patient,
+                    department_id=self.department.department_id,
+                    doctor_id=self.doctor.doctor_id,
+                    appointment_date=self.when,
+                    appointment_time=time(10, 0),
+                    reason="Consultation",
+                    receptionist=self.receptionist,
+                )
+        self.assertEqual(Appointment.objects.count(), appointment_count)
+        self.assertFalse(Bill.objects.exists())
 
     def test_existing_patient_and_sequential_token_generation(self):
         patient = self.make_patient()
@@ -266,6 +294,10 @@ class ReceptionistAPITests(TestCase):
             staff=doctor2_staff, specialization=Specialization.objects.get(specialization_name="General"),
             department=self.department, consultation_fee=Decimal("60.00"),
             qualification="MD", experience_years=5, license_number="LIC-2")
+        DoctorAvailability.objects.bulk_create([
+            DoctorAvailability(doctor=doctor2, weekday=day, start_time=time(0, 0), end_time=time(23, 59))
+            for day in range(7)
+        ])
 
         res3 = self.client.post("/api/receptionist/appointments/", self.appointment_data(patient, doctor_id=doctor2.doctor_id))
         self.assertEqual(res3.status_code, 409)
@@ -503,7 +535,6 @@ class ReceptionistAPITests(TestCase):
         resp = self.client.post("/api/receptionist/appointments/", data)
         self.assertEqual(resp.status_code, 400)
 
-    @override_settings(DOCTOR_WORKING_HOURS={1: (time(0, 0), time(23, 59))})
     def test_31_walk_in_today_accepted(self):
         patient = self.make_patient()
         today = timezone.localdate().isoformat()
@@ -529,7 +560,6 @@ class ReceptionistAPITests(TestCase):
         self.assertEqual(resp.status_code, 400)
         self.assertIn("Walk-In appointment time cannot be in the past", str(resp.data))
 
-    @override_settings(DOCTOR_WORKING_HOURS={1: (time(0, 0), time(23, 59))})
     def test_walk_in_today_current_time_accepted(self):
         patient = self.make_patient()
         today = timezone.localdate().isoformat()
@@ -609,6 +639,10 @@ class ReceptionistAPITests(TestCase):
             staff=doc2_staff, specialization=self.doctor.specialization,
             department=self.department, consultation_fee=Decimal("60.00"),
             qualification="MD", experience_years=8, license_number="LIC-2")
+        DoctorAvailability.objects.bulk_create([
+            DoctorAvailability(doctor=doctor2, weekday=day, start_time=time(0, 0), end_time=time(23, 59))
+            for day in range(7)
+        ])
 
         patient = self.make_patient()
         data1 = self.appointment_data(patient, doctor_id=self.doctor.doctor_id, appointment_time="14:00:00")
@@ -627,6 +661,10 @@ class ReceptionistAPITests(TestCase):
             staff=doc2_staff, specialization=self.doctor.specialization,
             department=self.department, consultation_fee=Decimal("70.00"),
             qualification="MD", experience_years=12, license_number="LIC-B")
+        DoctorAvailability.objects.bulk_create([
+            DoctorAvailability(doctor=doctor_b, weekday=day, start_time=time(0, 0), end_time=time(23, 59))
+            for day in range(7)
+        ])
 
         patient1 = self.make_patient(mobile_number="9876543210")
         patient2 = self.make_patient(full_name="Patient Two", mobile_number="9876543211", email="p2@example.com")
@@ -665,6 +703,10 @@ class ReceptionistAPITests(TestCase):
             staff=doc2_staff, specialization=self.doctor.specialization,
             department=self.department, consultation_fee=Decimal("75.00"),
             qualification="MD", experience_years=9, license_number="LIC-C")
+        DoctorAvailability.objects.bulk_create([
+            DoctorAvailability(doctor=doctor_c, weekday=day, start_time=time(0, 0), end_time=time(23, 59))
+            for day in range(7)
+        ])
 
         patient1 = self.make_patient(mobile_number="9876543210")
         patient2 = self.make_patient(full_name="Patient Two", mobile_number="9876543211", email="p2@example.com")
@@ -1076,7 +1118,6 @@ class DoctorWorkingHoursValidationTests(TestCase):
 
     def setUp(self):
         from datetime import time
-        from receptionistapp.services import DOCTOR_WORKING_HOURS
 
         self.client = APIClient()
         self.department = Department.objects.create(department_name="General", description="Care")
@@ -1098,7 +1139,10 @@ class DoctorWorkingHoursValidationTests(TestCase):
             staff=staff_a, specialization=Specialization.objects.create(specialization_name="General Care"),
             department=self.department, consultation_fee=Decimal("100.00"),
             qualification="MBBS", experience_years=8, license_number="LIC-A")
-        DOCTOR_WORKING_HOURS[self.doctor_a.doctor_id] = (time(8, 0), time(20, 0))
+        DoctorAvailability.objects.bulk_create([
+            DoctorAvailability(doctor=self.doctor_a, weekday=day, start_time=time(8, 0), end_time=time(20, 0))
+            for day in range(7)
+        ])
 
         # Doctor B: 10:00 AM -> 06:00 PM (18:00)
         user_b = User.objects.create_user(username="doc_b", password="secret", role=doctor_role, is_active=True)
@@ -1109,7 +1153,10 @@ class DoctorWorkingHoursValidationTests(TestCase):
             staff=staff_b, specialization=Specialization.objects.create(specialization_name="Pediatrics Spec"),
             department=self.department, consultation_fee=Decimal("150.00"),
             qualification="MD", experience_years=5, license_number="LIC-B")
-        DOCTOR_WORKING_HOURS[self.doctor_b.doctor_id] = (time(10, 0), time(18, 0))
+        DoctorAvailability.objects.bulk_create([
+            DoctorAvailability(doctor=self.doctor_b, weekday=day, start_time=time(10, 0), end_time=time(18, 0))
+            for day in range(7)
+        ])
 
         self.client.post("/api/receptionist/login/", {"username": "desk_wh", "password": "secret"})
         self.tomorrow = (timezone.localdate() + timedelta(days=1)).isoformat()
@@ -1254,7 +1301,6 @@ class DoctorWorkingHoursValidationTests(TestCase):
     def test_8_walk_in_inside_doctor_hours_future_time_accepted(self):
         """8. Walk-In + inside doctor's hours + current/future time -> accepted (201)"""
         from datetime import time
-        from receptionistapp.services import DOCTOR_WORKING_HOURS
 
         now = timezone.localtime()
         # Doctor with working hours that guarantee coverage of current/future time
@@ -1266,7 +1312,9 @@ class DoctorWorkingHoursValidationTests(TestCase):
             staff=staff_c, specialization=Specialization.objects.first(),
             department=self.department, consultation_fee=Decimal("120.00"),
             qualification="MBBS", experience_years=10, license_number="LIC-C")
-        DOCTOR_WORKING_HOURS[doc_c.doctor_id] = (time(0, 0), time(23, 59))
+        DoctorAvailability.objects.create(
+            doctor=doc_c, weekday=timezone.localdate().weekday(), start_time=time(0, 0), end_time=time(23, 59)
+        )
 
         future_time = (now + timedelta(minutes=5)).strftime("%H:%M:%S")
         p = self.make_patient("WalkIn Valid", "9876540023")
@@ -1311,3 +1359,128 @@ class DoctorWorkingHoursValidationTests(TestCase):
         })
         self.assertEqual(res.status_code, 201)
         self.assertEqual(res.data["appointment_time"], "14:00:00")
+
+
+@skipUnlessDBFeature("has_select_for_update")
+class ConcurrentAppointmentTokenTests(TransactionTestCase):
+    """Exercise Doctor row locking on databases that implement SELECT FOR UPDATE."""
+
+    reset_sequences = True
+
+    def setUp(self):
+        self.department = Department.objects.create(department_name="Concurrent", description="Test")
+        receptionist_role = Role.objects.create(role_name="Receptionist")
+        receptionist_user = User.objects.create_user(
+            username="concurrent-desk", password="test", role=receptionist_role
+        )
+        receptionist_staff = Staff.objects.create(
+            user=receptionist_user, full_name="Concurrent Desk", gender="Other", dob=date(1990, 1, 1),
+            mobile_number="9000000000", email="concurrent@example.test", department=self.department,
+        )
+        self.receptionist = Receptionist.objects.create(staff=receptionist_staff)
+        doctor_role = Role.objects.create(role_name="Doctor")
+        doctor_user = User.objects.create_user(
+            username="concurrent-doctor", password="test", role=doctor_role
+        )
+        doctor_staff = Staff.objects.create(
+            user=doctor_user, full_name="Dr Concurrent", gender="Other", dob=date(1980, 1, 1),
+            mobile_number="9000000001", email="doctor@example.test", department=self.department,
+        )
+        self.doctor = Doctor.objects.create(
+            staff=doctor_staff,
+            specialization=Specialization.objects.create(specialization_name="General"),
+            department=self.department,
+            consultation_fee=Decimal("50.00"),
+            qualification="MD",
+            experience_years=10,
+            license_number="CONCURRENT-1",
+        )
+        DoctorAvailability.objects.bulk_create([
+            DoctorAvailability(doctor=self.doctor, weekday=day, start_time=time(0, 0), end_time=time(23, 59))
+            for day in range(7)
+        ])
+        self.patients = [
+            Patient.objects.create(
+                full_name=f"Concurrent Patient {index}", dob=date(2000, 1, 1), gender="Other",
+                mobile_number=f"900000001{index}", email=f"patient{index}@example.test",
+                address="Test", blood_group="O+", emergency_contact="9000000099",
+            )
+            for index in (1, 2)
+        ]
+        self.appointment_date = timezone.localdate() + timedelta(days=2)
+
+    def test_concurrent_bookings_receive_distinct_tokens(self):
+        barrier = Barrier(2)
+        outcomes = Queue()
+
+        def book(patient_id, appointment_time):
+            close_old_connections()
+            try:
+                patient = Patient.objects.get(pk=patient_id)
+                barrier.wait(timeout=10)
+                appointment = create_appointment(
+                    patient=patient,
+                    department_id=self.department.department_id,
+                    doctor_id=self.doctor.doctor_id,
+                    appointment_date=self.appointment_date,
+                    appointment_time=appointment_time,
+                    reason="Concurrent test",
+                    receptionist=self.receptionist,
+                )
+                outcomes.put(appointment.token_number)
+            except Exception as exc:
+                outcomes.put(exc)
+            finally:
+                close_old_connections()
+
+        threads = [
+            Thread(target=book, args=(self.patients[0].patient_id, time(10, 0))),
+            Thread(target=book, args=(self.patients[1].patient_id, time(10, 30))),
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=20)
+
+        self.assertFalse(any(thread.is_alive() for thread in threads), "Booking threads did not finish")
+        results = [outcomes.get_nowait(), outcomes.get_nowait()]
+        errors = [result for result in results if isinstance(result, Exception)]
+        self.assertEqual(errors, [])
+        self.assertEqual(sorted(results, key=int), ["1", "2"])
+
+    def test_concurrent_conflicting_bookings_create_only_one_booking_and_bill(self):
+        barrier = Barrier(2)
+        outcomes = Queue()
+
+        def book(patient_id):
+            close_old_connections()
+            try:
+                patient = Patient.objects.get(pk=patient_id)
+                barrier.wait(timeout=10)
+                appointment = create_appointment(
+                    patient=patient, department_id=self.department.department_id,
+                    doctor_id=self.doctor.doctor_id, appointment_date=self.appointment_date,
+                    appointment_time=time(11, 0), reason="Concurrent conflict test",
+                    receptionist=self.receptionist,
+                )
+                outcomes.put(("created", appointment.appointment_id))
+            except Exception as exc:
+                outcomes.put(("error", str(exc)))
+            finally:
+                close_old_connections()
+
+        threads = [Thread(target=book, args=(patient.patient_id,)) for patient in self.patients]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=20)
+
+        self.assertFalse(any(thread.is_alive() for thread in threads), "Booking threads did not finish")
+        results = [outcomes.get_nowait(), outcomes.get_nowait()]
+        self.assertEqual([result[0] for result in results].count("created"), 1)
+        self.assertEqual([result[0] for result in results].count("error"), 1)
+        self.assertEqual(Appointment.objects.filter(
+            doctor=self.doctor, appointment_date=self.appointment_date, appointment_time=time(11, 0)
+        ).count(), 1)
+        self.assertEqual(Bill.objects.filter(appointment__doctor=self.doctor,
+                                             appointment__appointment_date=self.appointment_date).count(), 1)

@@ -199,6 +199,16 @@ class CommonLoginAPITests(TestCase):
         self.assertEqual(response.data["username"], "pharma_user")
         self.assertEqual(response.data["redirect"], "pharmacist/index.html")
 
+    def test_pharmacist_fallback_password_is_not_accepted_or_saved(self):
+        response = self.client.post("/api/login/", {
+            "username": "pharma_user",
+            "password": "Pharma 1234"
+        })
+        self.assertEqual(response.status_code, 401)
+        self.user_pharmacist.refresh_from_db()
+        self.assertTrue(self.user_pharmacist.check_password("password123"))
+        self.assertFalse(self.user_pharmacist.check_password("Pharma 1234"))
+
     # -----------------------------------------------------------
     # D. Invalid Username
     # -----------------------------------------------------------

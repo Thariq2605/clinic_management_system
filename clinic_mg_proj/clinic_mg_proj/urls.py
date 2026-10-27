@@ -27,6 +27,7 @@ urlpatterns = [
     path('doctor/', include('doctorapp.urls')),
     path('api/receptionist/', include('receptionistapp.urls')),
     path('pharmacist/', include('pharmacistapp.urls')),
+    path('api/lab-technician/', include('lab_technicianapp.urls')),
     path('api/admin/', include('adminapp.urls')),
     path('api/token/', obtain_auth_token, name='api-token'),
 ]

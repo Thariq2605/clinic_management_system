@@ -12,5 +12,9 @@ export const appointmentService = {
   cancel: (id) => receptionistApi.patch(`/appointments/${id}/`, {}),
   departments: () => receptionistApi.get('/departments/'),
   doctors: (department) => receptionistApi.get(`/doctors/${query({ department })}`),
-  doctorAvailability: (id) => receptionistApi.get(`/doctors/${id}/availability/`),
+  doctorAvailability: (id, date) => receptionistApi.get(`/doctors/${id}/availability/${query({ date })}`),
+  labRequests: () => receptionistApi.get('/lab-requests/assign/'),
+  assignLabRequests: (data) => receptionistApi.post('/lab-requests/assign/', data),
+  labRequests: () => receptionistApi.get('/lab-requests/assign/'),
+  assignLabRequests: (data) => receptionistApi.post('/lab-requests/assign/', data),
 };

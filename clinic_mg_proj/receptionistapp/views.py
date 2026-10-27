@@ -11,7 +11,9 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from core.models import Appointment, Bill, Department, Doctor, Patient, Payment, Receptionist, Staff, User
+from core.models import (Appointment, Bill, Department, Doctor, DoctorAvailability,
+                         LabOrder, LabOrderItem, LabTechnician, Patient, Payment,
+                         PrescriptionLabTest, Receptionist, Staff, User)
 from core.services import appointment_queue_eligible
 from .permissions import IsReceptionistSession, ReceptionistSessionAuthentication
 from .serializers import (AppointmentCreateSerializer, AppointmentDetailSerializer,
@@ -19,7 +21,7 @@ from .serializers import (AppointmentCreateSerializer, AppointmentDetailSerializ
                           PatientSearchSerializer, PatientSerializer, PatientUpdateSerializer,
                           PaymentHistorySerializer, PaymentInputSerializer,
                           BillSerializer, TokenQueueAppointmentSerializer)
-from .services import AppointmentRuleError, create_appointment, get_doctor_working_hours, get_doctor_display_name
+from .services import AppointmentRuleError, create_appointment, get_doctor_schedule
 
 
 @api_view(["GET"])
@@ -30,7 +32,7 @@ def csrf_token(request):
 
 
 @csrf_protect
-@api_view(["POST"])
+@api_view(["GET", "POST"])
 @authentication_classes([])
 @permission_classes([AllowAny])
 def receptionist_login(request):
@@ -180,18 +182,126 @@ def doctor_availability(request, doctor_id):
                                    staff__is_active=True, department__is_active=True).first()
     if doctor is None:
         return Response({"error": "Active doctor was not found."}, status=404)
-    start_time, end_time = get_doctor_working_hours(doctor)
+    schedules = get_doctor_schedule(doctor)
+    weekday = None
+    parsed_date = None
+    selected = None
+    day_schedules = []
+    appointment_date = request.query_params.get("date")
+    if appointment_date:
+        try:
+            parsed_date = serializers.DateField().to_internal_value(appointment_date)
+            weekday = parsed_date.weekday()
+            day_schedules = [row for row in schedules if row.weekday == weekday]
+            selected = day_schedules[0] if day_schedules else None
+        except serializers.ValidationError as exc:
+            return Response({"date": exc.detail}, status=400)
+    booked = []
+    if parsed_date is not None:
+        booked = list(Appointment.objects.filter(
+            doctor=doctor, appointment_date=parsed_date, is_active=True
+        ).exclude(status="cancelled").order_by("appointment_time").values_list("appointment_time", flat=True))
     return Response({
         "doctor_id": doctor_id,
         "doctor_name": doctor.staff.full_name,
         "consultation_fee": str(doctor.consultation_fee),
-        "working_hours_start": start_time.strftime("%H:%M"),
-        "working_hours_end": end_time.strftime("%H:%M"),
-        "working_hours_display": f"{start_time.strftime('%I:%M %p')} - {end_time.strftime('%I:%M %p')}",
-        "availability_supported": False,
-        "availability": None,
-        "message": "No doctor schedule model exists in this project."
+        "working_hours_start": selected.start_time.strftime("%H:%M") if selected else None,
+        "working_hours_end": selected.end_time.strftime("%H:%M") if selected else None,
+        "working_hours_display": f"{selected.start_time.strftime('%I:%M %p')} - {selected.end_time.strftime('%I:%M %p')}" if selected else "No active schedule for this weekday",
+        "availability_supported": True,
+        "weekly_schedule": [{"weekday": row.weekday, "day": row.get_weekday_display(),
+                             "start_time": row.start_time.strftime("%H:%M"),
+                             "end_time": row.end_time.strftime("%H:%M")} for row in schedules],
+        "availability": {"weekday": weekday, "available": selected is not None,
+                          "intervals": [{"start_time": row.start_time.strftime("%H:%M"),
+                                         "end_time": row.end_time.strftime("%H:%M")} for row in day_schedules],
+                          "booked_appointment_times": [value.strftime("%H:%M") for value in booked]},
+        "message": "Availability is based on the doctor's recurring weekly schedule."
     })
+
+
+@api_view(["POST"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def assign_lab_requests(request):
+    if request.method == "GET":
+        rows = PrescriptionLabTest.objects.filter(
+            is_active=True, prescription__is_active=True,
+            prescription__consultation__is_active=True,
+        ).exclude(laborderitem__isnull=False).select_related(
+            "prescription__consultation__appointment", "prescription__doctor",
+            "prescription__patient", "test",
+        ).order_by("prescription_lab_test_id")
+        technicians = LabTechnician.objects.filter(
+            is_active=True, staff__is_active=True, staff__user__is_active=True,
+            staff__user__role__is_active=True,
+            staff__user__role__role_name__iregex=r"^(lab technician|laboratory technician)$",
+        ).select_related("staff").order_by("staff__full_name")
+        return Response({
+            "requests": [{
+                "request_id": row.prescription_lab_test_id,
+                "patient_id": row.prescription.patient_id,
+                "patient_name": row.prescription.patient.full_name,
+                "doctor_id": row.prescription.doctor_id,
+                "doctor_name": row.prescription.doctor.staff.full_name,
+                "appointment_id": row.prescription.consultation.appointment_id,
+                "test_name": row.test.test_name,
+                "instructions": row.instructions,
+            } for row in rows],
+            "technicians": [{"technician_id": row.technician_id, "name": row.staff.full_name}
+                            for row in technicians],
+        })
+    request_ids = request.data.get("prescription_lab_test_ids")
+    technician_id = request.data.get("technician_id")
+    priority = str(request.data.get("priority", "")).strip().lower()
+    if priority not in {"normal", "urgent"}:
+        return Response({"priority": "Choose normal or urgent."}, status=400)
+    if not isinstance(request_ids, list) or not request_ids or not all(
+        isinstance(value, int) and value > 0 for value in request_ids
+    ) or len(set(request_ids)) != len(request_ids):
+        return Response({"prescription_lab_test_ids": "Provide unique positive request IDs."}, status=400)
+    technician = LabTechnician.objects.select_related("staff__user").filter(
+        technician_id=technician_id, is_active=True, staff__is_active=True,
+        staff__user__is_active=True, staff__user__role__is_active=True,
+        staff__user__role__role_name__iregex=r"^(lab technician|laboratory technician)$",
+    ).first()
+    if technician is None:
+        return Response({"technician_id": "Active Laboratory Technician was not found."}, status=400)
+
+    with transaction.atomic():
+        requests = list(PrescriptionLabTest.objects.select_for_update().filter(
+            prescription_lab_test_id__in=request_ids, is_active=True,
+            prescription__is_active=True,
+            prescription__consultation__is_active=True,
+        ).select_related("prescription__consultation__appointment", "prescription__doctor", "prescription__patient", "test"))
+        if len(requests) != len(request_ids):
+            return Response({"prescription_lab_test_ids": "One or more active requests were not found."}, status=404)
+        appointments = {row.prescription.consultation.appointment_id for row in requests}
+        doctors = {row.prescription.doctor_id for row in requests}
+        patients = {row.prescription.patient_id for row in requests}
+        if len(appointments) != 1 or len(doctors) != 1 or len(patients) != 1:
+            return Response({"prescription_lab_test_ids": "Requests must belong to the same patient appointment."}, status=400)
+        if any(row.prescription.consultation.doctor_id != row.prescription.doctor_id
+               or row.prescription.consultation.appointment.patient_id != row.prescription.patient_id
+               for row in requests):
+            return Response({"prescription_lab_test_ids": "A request has inconsistent doctor, appointment, or patient relationships."}, status=400)
+        if LabOrderItem.objects.filter(prescription_lab_test_id__in=request_ids).exists():
+            return Response({"prescription_lab_test_ids": "A request has already been assigned to a laboratory order."}, status=409)
+
+        first = requests[0]
+        appointment = first.prescription.consultation.appointment
+        order = LabOrder.objects.create(
+            patient_id=next(iter(patients)), doctor_id=next(iter(doctors)),
+            appointment=appointment, order_date=appointment.appointment_date,
+            priority=priority, status="pending",
+        )
+        LabOrderItem.objects.bulk_create([
+            LabOrderItem(order=order, test=row.test, prescription_lab_test=row,
+                         technician=technician, status="pending")
+            for row in requests
+        ])
+    return Response({"order_id": order.order_id, "item_count": len(requests),
+                     "technician_id": technician.technician_id}, status=201)
 
 
 @api_view(["GET", "POST"])

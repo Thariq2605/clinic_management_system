@@ -9,10 +9,12 @@ const shiftDate = (days) => { const date = new Date(); date.setDate(date.getDate
 export default function AppointmentForm({ onSubmit, onCancel, saving = false }) {
   const [departments, setDepartments] = useState([]); const [doctors, setDoctors] = useState([]);
   const [patients, setPatients] = useState([]); const [patientSearch, setPatientSearch] = useState('');
+  const [doctorAvailability, setDoctorAvailability] = useState(null);
   const [form, setForm] = useState({ patient_id: '', department_id: '', doctor_id: '', appointment_date: '', appointment_time: '', appointment_type: 'pre_booking', reason: 'Regular consultation' });
   const [loading, setLoading] = useState(true); const [error, setError] = useState('');
   useEffect(() => { appointmentService.departments().then(setDepartments).catch((err) => setError(err.message)).finally(() => setLoading(false)); }, []);
   useEffect(() => { if (!form.department_id) { setDoctors([]); return; } appointmentService.doctors(form.department_id).then(setDoctors).catch((err) => setError(err.message)); }, [form.department_id]);
+  useEffect(() => { let active = true; setDoctorAvailability(null); if (form.doctor_id && form.appointment_date) appointmentService.doctorAvailability(form.doctor_id, form.appointment_date).then((data) => active && setDoctorAvailability(data)).catch((err) => active && setError(err.message)); return () => { active = false; }; }, [form.doctor_id, form.appointment_date]);
   useEffect(() => { let active = true; const timer = setTimeout(() => { if (patientSearch.trim().length >= 1) patientService.search(patientSearch.trim()).then((rows) => active && setPatients(rows)).catch((err) => active && setError(err.message)); else setPatients([]); }, 250); return () => { active = false; clearTimeout(timer); }; }, [patientSearch]);
   function change(event) { setForm((current) => ({ ...current, [event.target.name]: event.target.value, ...(event.target.name === 'department_id' ? { doctor_id: '' } : {}) })); }
   async function submit(event) { event.preventDefault(); setError(''); if (!form.patient_id || !form.department_id || !form.doctor_id || !form.appointment_date || !form.appointment_time) { setError('Complete all required fields.'); return; } try { await onSubmit({ ...form, patient_id: Number(form.patient_id), department_id: Number(form.department_id), doctor_id: Number(form.doctor_id) }); } catch (err) { setError(err.message); } }
@@ -24,6 +26,7 @@ export default function AppointmentForm({ onSubmit, onCancel, saving = false }) 
     <label className="field"><span>Appointment type *</span><select name="appointment_type" value={form.appointment_type} onChange={change}><option value="pre_booking">Pre-booking</option><option value="walk_in">Walk-in</option></select></label>
     <label className="field"><span>Appointment date *</span><input type="date" name="appointment_date" min={form.appointment_type === 'walk_in' ? today() : shiftDate(1)} max={form.appointment_type === 'walk_in' ? today() : shiftDate(10)} value={form.appointment_date} onChange={change} required /></label>
     <label className="field"><span>Appointment time *</span><input type="time" name="appointment_time" value={form.appointment_time} onChange={change} required /></label>
+    {doctorAvailability && <div className="field field-full"><small>{doctorAvailability.working_hours_display}. Existing appointments: {doctorAvailability.availability?.booked_appointment_times?.join(', ') || 'none'}.</small></div>}
     <label className="field field-full"><span>Reason</span><input name="reason" maxLength="255" value={form.reason} onChange={change} /></label>
   </div>{error && <div className="inline-error">{error}</div>}<div className="form-actions"><button type="button" className="button button-secondary" onClick={onCancel}>Cancel</button><button className="button button-primary" disabled={saving}>{saving ? 'Booking…' : 'Book appointment'}</button></div></form>;
 }

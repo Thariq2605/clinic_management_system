@@ -20,6 +20,7 @@ from core.models import (
     Bill,
     Payment,
     ClinicSetting,
+    DoctorAvailability,
 )
 
 
@@ -32,15 +33,28 @@ class RoleSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     role_name = serializers.CharField(source="role.role_name", read_only=True)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = User
         fields = ["user_id", "username", "password", "role", "role_name", "is_active"]
         read_only_fields = ["user_id", "role_name"]
-        extra_kwargs = {"password": {"write_only": True, "required": False}}
+
+    def validate_username(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Username is required.")
+        if len(value) > 50:
+            raise serializers.ValidationError("Username cannot exceed 50 characters.")
+        return value
+
+    def validate(self, attrs):
+        if self.instance is None and not attrs.get("password"):
+            raise serializers.ValidationError({"password": "Password is required when creating an account."})
+        return attrs
 
     def create(self, validated_data):
-        password = validated_data.pop("password", "Admin@123")
+        password = validated_data.pop("password")
         user = User(**validated_data)
         user.set_password(password)
         user.save()
@@ -110,9 +124,57 @@ class StaffSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["staff_id", "role_name", "department_name"]
 
+    def validate_username(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Username is required when creating a staff account.")
+        if len(value) > 50:
+            raise serializers.ValidationError("Username cannot exceed 50 characters.")
+        if self.instance is None and User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("A user with this username already exists.")
+        return value
+
+    def validate_password(self, value):
+        if self.instance is None and not value:
+            raise serializers.ValidationError("Password is required when creating a staff account.")
+        return value
+
+    def validate_full_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Full name is required.")
+        return value
+
+    def validate_mobile_number(self, value):
+        value = value.strip()
+        if not re.fullmatch(r"[6-9][0-9]{9}", value):
+            raise serializers.ValidationError("Enter a 10-digit mobile number beginning with 6, 7, 8, or 9.")
+        return value
+
+    def validate_email(self, value):
+        value = value.strip()
+        try:
+            django_validate_email(value)
+        except DjangoValidationError:
+            raise serializers.ValidationError("Enter a valid email address.")
+        return value
+
+    def validate_dob(self, value):
+        if value > timezone.localdate():
+            raise serializers.ValidationError("Date of birth cannot be in the future.")
+        return value
+
+    def validate(self, attrs):
+        if self.instance is None:
+            if not attrs.get("username"):
+                raise serializers.ValidationError({"username": "Username is required when creating a staff account."})
+            if not attrs.get("password"):
+                raise serializers.ValidationError({"password": "Password is required when creating a staff account."})
+        return attrs
+
     def create(self, validated_data):
         username = validated_data.pop("username", None)
-        password = validated_data.pop("password", "Admin@123")
+        password = validated_data.pop("password")
         role = validated_data.pop("role", None)
 
         if not role:
@@ -225,6 +287,28 @@ class DoctorSerializer(serializers.ModelSerializer):
     def get_doctor_name(self, obj):
         return obj.staff.full_name if obj.staff else "Doctor"
 
+    def validate_consultation_fee(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Consultation fee cannot be negative.")
+        return value
+
+    def validate_experience_years(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Years of experience cannot be negative.")
+        return value
+
+    def validate_qualification(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Qualification is required.")
+        return value
+
+    def validate_license_number(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("License number is required.")
+        return value
+
 
 class MedicineSerializer(serializers.ModelSerializer):
     stock_status = serializers.SerializerMethodField()
@@ -250,6 +334,16 @@ class MedicineSerializer(serializers.ModelSerializer):
         if obj.quantity <= 15:
             return "Low Stock"
         return "Available"
+
+    def validate_unit_price(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Unit price cannot be negative.")
+        return value
+
+    def validate_quantity(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Quantity cannot be negative.")
+        return value
 
 
 import re
@@ -294,8 +388,6 @@ class PatientSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Please enter a valid patient name.")
         if len(trimmed) > 100:
             raise serializers.ValidationError("Full name cannot exceed 100 characters.")
-        if not re.match(r"^[a-zA-Z\s\.\'\-]+$", trimmed) or not any(c.isalpha() for c in trimmed):
-            raise serializers.ValidationError("Please enter a valid patient name.")
         return trimmed
 
     def validate_dob(self, value):
@@ -328,8 +420,8 @@ class PatientSerializer(serializers.ModelSerializer):
         if value is None:
             raise serializers.ValidationError("Phone number must contain exactly 10 digits.")
         val = str(value).strip()
-        if not re.match(r"^[0-9]{10}$", val):
-            raise serializers.ValidationError("Phone number must contain exactly 10 digits.")
+        if not re.fullmatch(r"[6-9][0-9]{9}", val):
+            raise serializers.ValidationError("Enter a 10-digit mobile number beginning with 6, 7, 8, or 9.")
         return val
 
     def validate_emergency_contact(self, value):
@@ -338,8 +430,8 @@ class PatientSerializer(serializers.ModelSerializer):
         val = str(value).strip()
         if not val:
             return ""
-        if not re.match(r"^[0-9]{10}$", val):
-            raise serializers.ValidationError("Emergency contact must contain exactly 10 digits.")
+        if not re.fullmatch(r"[6-9][0-9]{9}", val):
+            raise serializers.ValidationError("Enter a 10-digit mobile number beginning with 6, 7, 8, or 9.")
         return val
 
     def validate_email(self, value):
@@ -446,6 +538,36 @@ class AppointmentSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class DoctorAvailabilitySerializer(serializers.ModelSerializer):
+    doctor_name = serializers.CharField(source="doctor.staff.full_name", read_only=True)
+    weekday_name = serializers.CharField(source="get_weekday_display", read_only=True)
+
+    class Meta:
+        model = DoctorAvailability
+        fields = ["availability_id", "doctor", "doctor_name", "weekday", "weekday_name",
+                  "start_time", "end_time", "is_active"]
+        read_only_fields = ["availability_id", "doctor_name", "weekday_name"]
+
+    def validate(self, attrs):
+        doctor = attrs.get("doctor", getattr(self.instance, "doctor", None))
+        weekday = attrs.get("weekday", getattr(self.instance, "weekday", None))
+        start = attrs.get("start_time", getattr(self.instance, "start_time", None))
+        end = attrs.get("end_time", getattr(self.instance, "end_time", None))
+        active = attrs.get("is_active", getattr(self.instance, "is_active", True))
+        if start is not None and end is not None and start >= end:
+            raise serializers.ValidationError({"end_time": "End time must be after start time."})
+        if doctor and weekday is not None and active:
+            conflicts = DoctorAvailability.objects.filter(
+                doctor=doctor, weekday=weekday, is_active=True,
+                start_time__lte=end, end_time__gte=start,
+            )
+            if self.instance:
+                conflicts = conflicts.exclude(pk=self.instance.pk)
+            if conflicts.exists():
+                raise serializers.ValidationError({"start_time": "This interval overlaps another active interval for that weekday."})
+        return attrs
+
+
 class LabTestSerializer(serializers.ModelSerializer):
     class Meta:
         model = LabTest
@@ -459,6 +581,11 @@ class LabTestSerializer(serializers.ModelSerializer):
             "is_active",
         ]
         read_only_fields = ["test_id"]
+
+    def validate_test_fee(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Test fee cannot be negative.")
+        return value
 
 
 class BillSerializer(serializers.ModelSerializer):
@@ -573,6 +700,8 @@ class PaymentSerializer(serializers.ModelSerializer):
 
 
 class ClinicSettingSerializer(serializers.ModelSerializer):
+    clinic_email = serializers.EmailField(required=False, max_length=100)
+
     class Meta:
         model = ClinicSetting
         fields = [
@@ -589,3 +718,44 @@ class ClinicSettingSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["setting_id", "updated_at"]
+
+    def validate_clinic_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Clinic name is required.")
+        return value
+
+    def validate_clinic_email(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Clinic email is required.")
+        return value
+
+    def validate_clinic_phone(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Clinic phone is required.")
+        return value
+
+    def validate_clinic_address(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Clinic address is required.")
+        return value
+
+    def validate_timezone(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Timezone is required.")
+        return value
+
+    def validate_currency(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Currency is required.")
+        return value
+
+    def validate_appointment_slot_duration(self, value):
+        if value < 1:
+            raise serializers.ValidationError("Appointment slot duration must be at least 1 minute.")
+        return value

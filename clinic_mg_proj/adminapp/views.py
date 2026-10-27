@@ -24,6 +24,7 @@ from core.models import (
     Payment,
     ClinicSetting,
     MedicalRecord,
+    DoctorAvailability,
 )
 
 from .permissions import IsAdministrator
@@ -42,6 +43,7 @@ from .serializers import (
     BillSerializer,
     PaymentSerializer,
     ClinicSettingSerializer,
+    DoctorAvailabilitySerializer,
 )
 
 
@@ -269,6 +271,26 @@ class DoctorDetailView(BaseAdminDetailView):
     serializer_class = DoctorSerializer
 
 
+class DoctorAvailabilityListCreateView(generics.ListCreateAPIView):
+    serializer_class = DoctorAvailabilitySerializer
+    permission_classes = [IsAdministrator]
+
+    def get_queryset(self):
+        rows = DoctorAvailability.objects.select_related("doctor__staff").order_by(
+            "doctor_id", "weekday", "start_time"
+        )
+        doctor_id = self.request.query_params.get("doctor")
+        if doctor_id:
+            rows = rows.filter(doctor_id=doctor_id)
+        return rows
+
+
+class DoctorAvailabilityDetailView(generics.RetrieveUpdateAPIView):
+    queryset = DoctorAvailability.objects.select_related("doctor__staff").all()
+    serializer_class = DoctorAvailabilitySerializer
+    permission_classes = [IsAdministrator]
+
+
 # =========================================================
 # MEDICINES
 # =========================================================
@@ -401,7 +423,7 @@ class PatientProfileView(APIView):
 # APPOINTMENTS
 # =========================================================
 
-class AppointmentListCreateView(generics.ListCreateAPIView):
+class AppointmentListCreateView(generics.ListAPIView):
     serializer_class = AppointmentSerializer
     permission_classes = [IsAdministrator]
 
@@ -433,7 +455,8 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
         return queryset
 
 
-class AppointmentDetailView(BaseAdminDetailView):
+class AppointmentDetailView(generics.RetrieveAPIView):
+    permission_classes = [IsAdministrator]
     queryset = Appointment.objects.all()
     serializer_class = AppointmentSerializer
 
@@ -442,7 +465,7 @@ class AppointmentDetailView(BaseAdminDetailView):
 # BILLING & PAYMENTS
 # =========================================================
 
-class BillListCreateView(generics.ListCreateAPIView):
+class BillListCreateView(generics.ListAPIView):
     serializer_class = BillSerializer
     permission_classes = [IsAdministrator]
 
@@ -463,12 +486,13 @@ class BillListCreateView(generics.ListCreateAPIView):
         return queryset
 
 
-class BillDetailView(BaseAdminDetailView):
+class BillDetailView(generics.RetrieveAPIView):
+    permission_classes = [IsAdministrator]
     queryset = Bill.objects.all()
     serializer_class = BillSerializer
 
 
-class PaymentListCreateView(generics.ListCreateAPIView):
+class PaymentListCreateView(generics.ListAPIView):
     serializer_class = PaymentSerializer
     permission_classes = [IsAdministrator]
 
@@ -488,7 +512,8 @@ class PaymentListCreateView(generics.ListCreateAPIView):
         return queryset
 
 
-class PaymentDetailView(BaseAdminDetailView):
+class PaymentDetailView(generics.RetrieveAPIView):
+    permission_classes = [IsAdministrator]
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
 

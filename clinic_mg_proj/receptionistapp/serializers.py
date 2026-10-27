@@ -171,7 +171,8 @@ class DepartmentSerializer(serializers.ModelSerializer):
         fields = ("department_id", "department_name")
 
 
-from .services import get_doctor_working_hours, get_doctor_display_name
+from core.models import DoctorAvailability
+from .services import get_doctor_schedule, get_doctor_display_name
 
 
 class DoctorSerializer(serializers.ModelSerializer):
@@ -180,26 +181,40 @@ class DoctorSerializer(serializers.ModelSerializer):
     working_hours_start = serializers.SerializerMethodField()
     working_hours_end = serializers.SerializerMethodField()
     working_hours_display = serializers.SerializerMethodField()
+    weekly_schedule = serializers.SerializerMethodField()
 
     class Meta:
         model = Doctor
         fields = (
             "doctor_id", "doctor_name", "department", "department_name",
             "consultation_fee", "working_hours_start", "working_hours_end",
-            "working_hours_display"
+            "working_hours_display", "weekly_schedule"
         )
 
     def get_working_hours_start(self, doctor):
-        start, _ = get_doctor_working_hours(doctor)
-        return start.strftime("%H:%M")
+        schedule = get_doctor_schedule(doctor)
+        start = schedule[0].start_time if schedule else None
+        return start.strftime("%H:%M") if start else None
 
     def get_working_hours_end(self, doctor):
-        _, end = get_doctor_working_hours(doctor)
-        return end.strftime("%H:%M")
+        schedule = get_doctor_schedule(doctor)
+        end = schedule[0].end_time if schedule else None
+        return end.strftime("%H:%M") if end else None
 
     def get_working_hours_display(self, doctor):
-        start, end = get_doctor_working_hours(doctor)
-        return f"{start.strftime('%I:%M %p')} - {end.strftime('%I:%M %p')}"
+        schedules = get_doctor_schedule(doctor)
+        return "; ".join(
+            f"{row.get_weekday_display()}: {row.start_time.strftime('%I:%M %p')} - {row.end_time.strftime('%I:%M %p')}"
+            for row in schedules
+        ) or "No active schedule"
+
+    def get_weekly_schedule(self, doctor):
+        return [{
+            "weekday": row.weekday,
+            "day": row.get_weekday_display(),
+            "start_time": row.start_time.strftime("%H:%M"),
+            "end_time": row.end_time.strftime("%H:%M"),
+        } for row in get_doctor_schedule(doctor)]
 
 
 class AppointmentCreateSerializer(serializers.Serializer):
@@ -272,7 +287,26 @@ class AppointmentCreateSerializer(serializers.Serializer):
             )
 
         # Doctor Working-Hours Validation (start and end times are inclusive)
-        start_time, end_time = get_doctor_working_hours(doctor)
+        schedule = DoctorAvailability.objects.filter(
+            doctor=doctor, weekday=app_date.weekday(), is_active=True,
+            start_time__lte=app_time, end_time__gte=app_time,
+        ).first()
+        if schedule is None:
+            day_schedules = DoctorAvailability.objects.filter(
+                doctor=doctor, weekday=app_date.weekday(), is_active=True
+            ).order_by("start_time")
+            if day_schedules.exists():
+                periods = ", ".join(
+                    f"{row.start_time.strftime('%I:%M %p')} - {row.end_time.strftime('%I:%M %p')}"
+                    for row in day_schedules
+                )
+                raise serializers.ValidationError({
+                    "appointment_time": f"Appointment time must be within {get_doctor_display_name(doctor)}'s working hours ({periods})."
+                })
+            raise serializers.ValidationError({
+                "appointment_date": "Doctor is not available on this weekday."
+            })
+        start_time, end_time = schedule.start_time, schedule.end_time
         app_time_cmp = app_time.replace(second=0, microsecond=0)
         start_time_cmp = start_time.replace(second=0, microsecond=0)
         end_time_cmp = end_time.replace(second=0, microsecond=0)

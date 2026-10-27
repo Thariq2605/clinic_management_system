@@ -21,6 +21,7 @@ from core.models import (
     MedicalRecord,
     Medicine,
     LabTest,
+    LabOrderItem,
 )
 from core.services import appointment_payment_completed
 
@@ -993,3 +994,27 @@ def doctor_lab_tests(request, doctor_id):
         '-prescription__prescription_date', '-prescription_lab_test_id'
     )
     return Response(PrescriptionLabTestSerializer(requests, many=True).data, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsDoctor])
+def doctor_lab_results(request, doctor_id):
+    doctor = get_authenticated_doctor(request, doctor_id)
+    if not doctor:
+        return Response({'error': 'You are not authorized to access these laboratory results.'}, status=403)
+    items = LabOrderItem.objects.filter(
+        order__doctor=doctor, order__is_active=True, order__patient__is_active=True,
+        is_active=True, status='completed', result__gt='',
+    ).select_related('order__patient', 'order__appointment', 'test').prefetch_related(
+        'order__appointment__bill_set__payment_set'
+    ).order_by(
+        '-order__order_date', 'item_id'
+    )
+    items = [item for item in items if is_appointment_payment_completed(item.order.appointment)[0]]
+    return Response([{
+        'item_id': item.item_id, 'order_id': item.order_id,
+        'patient_id': item.order.patient_id, 'patient_name': item.order.patient.full_name,
+        'appointment_id': item.order.appointment_id, 'test_id': item.test_id,
+        'test_name': item.test.test_name, 'result': item.result,
+        'order_date': item.order.order_date,
+    } for item in items], status=200)

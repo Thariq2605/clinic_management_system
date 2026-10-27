@@ -1,14 +1,16 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { resolveSharedLoginUrl } from '../services/sharedLogin.js';
 
 const items = [
   ['/', 'Overview', '◫'], ['/patients', 'Patients', '♧'], ['/appointments', 'Appointments', '▦'],
   ['/queue', 'Token queue', '☷'], ['/billing', 'Billing', '▤'], ['/doctors', 'Doctors', '✚'],
+  ['/lab-assignment', 'Lab assignment', 'L'],
 ];
 export default function ReceptionistLayout() {
-  const { user, signOut } = useAuth(); const navigate = useNavigate(); const [open, setOpen] = useState(false); const [busy, setBusy] = useState(false);
-  async function logout() { if (!window.confirm('Sign out of the receptionist session?')) return; setBusy(true); try { await signOut(); } finally { navigate('/login', { replace: true }); setBusy(false); } }
+  const { user, signOut } = useAuth(); const [open, setOpen] = useState(false); const [busy, setBusy] = useState(false);
+  async function logout() { if (!window.confirm('Sign out of the receptionist session?')) return; setBusy(true); try { await signOut(); } finally { window.location.replace(resolveSharedLoginUrl(import.meta.env.VITE_SHARED_LOGIN_URL, import.meta.env.DEV)); } }
   const firstName = user?.name?.trim().split(/\s+/)[0] || 'Receptionist';
   return <div className="app-shell">
     {open && <button className="mobile-scrim" onClick={() => setOpen(false)} aria-label="Close navigation" />}

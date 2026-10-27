@@ -32,6 +32,8 @@ from .views import (
     AdminDashboardView,
     AdminReportsView,
     AdminSettingsView,
+    DoctorAvailabilityListCreateView,
+    DoctorAvailabilityDetailView,
 )
 
 urlpatterns = [
@@ -61,6 +63,8 @@ urlpatterns = [
     # Doctors
     path("doctors/", DoctorListCreateView.as_view(), name="doctor-list-create"),
     path("doctors/<int:pk>/", DoctorDetailView.as_view(), name="doctor-detail"),
+    path("doctor-availability/", DoctorAvailabilityListCreateView.as_view(), name="doctor-availability-list-create"),
+    path("doctor-availability/<int:pk>/", DoctorAvailabilityDetailView.as_view(), name="doctor-availability-detail"),
 
     # Medicines
     path("medicines/", MedicineListCreateView.as_view(), name="medicine-list-create"),

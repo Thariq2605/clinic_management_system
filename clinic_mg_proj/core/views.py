@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.authtoken.models import Token
 
-from core.models import Doctor, Receptionist, Staff, User
+from core.models import Doctor, LabTechnician, Receptionist, Staff, User
 
 
 @api_view(["GET"])
@@ -29,6 +29,7 @@ def common_login(request):
     - Receptionist (Django session authentication)
     - Doctor (SimpleJWT Bearer authentication)
     - Pharmacist (Standard user profile authentication)
+    - Laboratory Technician (JWT authentication for assigned laboratory work)
 
     The role is strictly determined by the backend from User.role.
     Client-provided role values are strictly ignored.
@@ -54,13 +55,6 @@ def common_login(request):
         )
 
     is_valid_pw = check_password(password, user.password)
-    # Support alternate spacing/casing if user is pharmacist
-    if not is_valid_pw and user.role and user.role.role_name.lower() == "pharmacist":
-        alt_passwords = ["Pharma 1234", "Pharma1234", "pharma1234", "pharma 1234"]
-        if password in alt_passwords or password.strip() in alt_passwords:
-            is_valid_pw = True
-            user.set_password(password)
-            user.save(update_fields=["password"])
 
     if not is_valid_pw:
         return Response(
@@ -176,6 +170,26 @@ def common_login(request):
             },
             status=status.HTTP_200_OK
         )
+
+    # --- Role: Laboratory Technician ---
+    elif role_name in {"lab technician", "laboratory technician"}:
+        staff = Staff.objects.filter(user=user, is_active=True).first()
+        technician = LabTechnician.objects.filter(staff=staff, is_active=True).first() if staff else None
+        if technician is None:
+            return Response(
+                {"error": "Active Laboratory Technician record was not found for this account."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        refresh = RefreshToken.for_user(user)
+        refresh["lab_technician_id"] = technician.technician_id
+        refresh["role"] = "lab_technician"
+        request.session.flush()
+        return Response({
+            "message": "Login successful", "role": "lab_technician",
+            "user_id": user.user_id, "technician_id": technician.technician_id,
+            "username": user.username, "name": staff.full_name,
+            "access": str(refresh.access_token), "refresh": str(refresh),
+        }, status=status.HTTP_200_OK)
 
     # --- Role: Administrator ---
     elif role_name in ["administrator", "admin"]:
