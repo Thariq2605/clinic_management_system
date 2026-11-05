@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <defs>
+    <linearGradient id="medicare-blue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#0284C7"/>
+    </linearGradient>
+    <linearGradient id="medicare-teal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2DD4BF"/>
+      <stop offset="100%" stop-color="#0F766E"/>
+    </linearGradient>
+    <linearGradient id="medicare-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0EA5E9" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#14B8A6" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+  <!-- Background Glow Squircle -->
+  <rect x="2" y="2" width="44" height="44" rx="12" fill="url(#medicare-glow)" stroke="#0EA5E9" stroke-opacity="0.3" stroke-width="1.5"/>
+  
+  <!-- Vertical Cross Bar -->
+  <rect x="18" y="10" width="12" height="28" rx="6" fill="url(#medicare-blue)"/>
+  
+  <!-- Horizontal Cross Bar -->
+  <rect x="10" y="18" width="28" height="12" rx="6" fill="url(#medicare-blue)"/>
+  
+  <!-- Dynamic Medical Leaf / Vital Care Arc -->
+  <path d="M14 34C14 34 19 32 24 24C29 16 34 14 34 14C34 14 33 22 28 27C23 32 17 34 14 34Z" fill="url(#medicare-teal)" fill-opacity="0.95"/>
+  <circle cx="24" cy="24" r="3.5" fill="#FFFFFF"/>
+  <circle cx="24" cy="24" r="1.8" fill="#0EA5E9"/>
+</svg>

@@ -1,3 +1,743 @@
-from django.shortcuts import render
+from decimal import Decimal
 
-# Create your views here.
+from django.contrib.auth.hashers import check_password
+from django.db import IntegrityError, transaction
+from django.db.models import Q, Sum
+from django.middleware.csrf import get_token
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_protect
+from rest_framework import serializers
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+
+from core.models import (Appointment, Bill, Department, Doctor, DoctorAvailability,
+                         LabOrder, LabOrderItem, LabTechnician, Patient, Payment,
+                         PrescriptionLabTest, Receptionist, Staff, User)
+from core.services import appointment_queue_eligible
+from .permissions import IsReceptionistSession, ReceptionistSessionAuthentication
+from .serializers import (AppointmentCreateSerializer, AppointmentDetailSerializer,
+                          AppointmentSerializer, DepartmentSerializer, DoctorSerializer,
+                          PatientSearchSerializer, PatientSerializer, PatientUpdateSerializer,
+                          PaymentHistorySerializer, PaymentInputSerializer,
+                          BillSerializer, TokenQueueAppointmentSerializer)
+from .services import AppointmentRuleError, create_appointment, get_doctor_schedule
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def csrf_token(request):
+    return Response({"csrfToken": get_token(request)})
+
+
+@csrf_protect
+@api_view(["GET", "POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def receptionist_login(request):
+    username, password = request.data.get("username"), request.data.get("password")
+    if not username or not password:
+        return Response({"error": "Username and password are required."}, status=400)
+    user = User.objects.select_related("role").filter(
+        username=username, is_active=True, role__is_active=True
+    ).first()
+    if user is None or not check_password(password, user.password):
+        return Response({"error": "Invalid username or password."}, status=401)
+    if user.role.role_name.casefold() != "receptionist":
+        return Response({"error": "This account is not a receptionist account."}, status=403)
+    staff = Staff.objects.filter(user=user, is_active=True).first()
+    receptionist = Receptionist.objects.filter(staff=staff, is_active=True).first() if staff else None
+    if receptionist is None:
+        return Response({"error": "Active receptionist record was not found."}, status=403)
+    request.session.flush()
+    request.session["user_id"] = user.user_id
+    request.session["receptionist_id"] = receptionist.receptionist_id
+    return Response({"message": "Receptionist login successful.",
+                     "user_id": user.user_id, "receptionist_id": receptionist.receptionist_id,
+                     "name": staff.full_name})
+
+
+@api_view(["POST"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def receptionist_logout(request):
+    request.session.flush()
+    return Response({"message": "Receptionist logged out."})
+
+
+@api_view(["GET", "POST"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def patients(request):
+    if request.method == "POST":
+        serializer = PatientSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        mobile = serializer.validated_data["mobile_number"].strip()
+        email = serializer.validated_data["email"].strip().casefold()
+        if Patient.objects.filter(mobile_number__iexact=mobile, is_active=True).exists():
+            return Response({"error": "A patient with this mobile number already exists."},
+                            status=409)
+        patient = serializer.save(mobile_number=mobile, email=email)
+        return Response(PatientSerializer(patient).data, status=201)
+
+    search = request.query_params.get("search", "").strip()
+    patient_id = request.query_params.get("patient_id", "").strip()
+    if not search and not patient_id:
+        return Response({"search": "Provide a patient_id or search term."}, status=400)
+    rows = Patient.objects.filter(is_active=True)
+    if patient_id:
+        if not patient_id.isdecimal() or int(patient_id) < 1:
+            return Response({"patient_id": "Must be a positive integer."}, status=400)
+        rows = rows.filter(patient_id=int(patient_id))
+    if search:
+        rows = rows.filter(Q(full_name__icontains=search) |
+                           Q(mobile_number__icontains=search) |
+                           Q(email__icontains=search))
+    return Response(PatientSearchSerializer(rows.order_by("patient_id")[:100], many=True).data)
+
+
+@api_view(["GET", "PUT", "PATCH"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def patient_detail(request, patient_id):
+    patient = Patient.objects.filter(patient_id=patient_id).first()
+    if patient is None:
+        return Response({"error": "Patient was not found."}, status=404)
+
+    if request.method == "GET":
+        return Response(PatientSerializer(patient).data)
+
+    partial = (request.method == "PATCH")
+    serializer = PatientUpdateSerializer(patient, data=request.data, partial=partial)
+    serializer.is_valid(raise_exception=True)
+    if "mobile_number" in serializer.validated_data:
+        mobile = serializer.validated_data["mobile_number"].strip()
+        if Patient.objects.filter(mobile_number__iexact=mobile, is_active=True).exclude(patient_id=patient.patient_id).exists():
+            return Response({"error": "A patient with this mobile number already exists."},
+                            status=409)
+    updated = serializer.save()
+    return Response(PatientSerializer(updated).data)
+
+
+@api_view(["PATCH"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def patient_status(request, patient_id):
+    patient = Patient.objects.filter(patient_id=patient_id).first()
+    if patient is None:
+        return Response({"error": "Patient was not found."}, status=404)
+
+    if "is_active" in request.data:
+        is_active = request.data["is_active"]
+        if isinstance(is_active, str):
+            if is_active.lower() in ("true", "1"):
+                is_active = True
+            elif is_active.lower() in ("false", "0"):
+                is_active = False
+            else:
+                return Response({"error": "is_active must be a boolean."}, status=400)
+        elif not isinstance(is_active, bool):
+            return Response({"error": "is_active must be a boolean."}, status=400)
+        patient.is_active = is_active
+    else:
+        patient.is_active = not patient.is_active
+
+    patient.save(update_fields=["is_active"])
+    return Response({
+        "message": f"Patient status updated to {'active' if patient.is_active else 'inactive'}.",
+        "patient_id": patient.patient_id,
+        "is_active": patient.is_active,
+    })
+
+
+@api_view(["GET"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def departments(request):
+    rows = Department.objects.filter(is_active=True).order_by("department_name")
+    return Response(DepartmentSerializer(rows, many=True).data)
+
+
+@api_view(["GET"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def doctors(request):
+    rows = Doctor.objects.filter(is_active=True, staff__is_active=True,
+                                 department__is_active=True)
+    department = request.query_params.get("department", "").strip()
+    if department:
+        if not department.isdecimal() or int(department) < 1:
+            return Response({"department": "Must be a positive integer."}, status=400)
+        rows = rows.filter(department_id=int(department))
+    rows = rows.select_related("staff", "department").order_by("doctor_id")
+    return Response(DoctorSerializer(rows, many=True).data)
+
+
+@api_view(["GET"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def doctor_availability(request, doctor_id):
+    doctor = Doctor.objects.filter(doctor_id=doctor_id, is_active=True,
+                                   staff__is_active=True, department__is_active=True).first()
+    if doctor is None:
+        return Response({"error": "Active doctor was not found."}, status=404)
+    schedules = get_doctor_schedule(doctor)
+    weekday = None
+    parsed_date = None
+    selected = None
+    day_schedules = []
+    appointment_date = request.query_params.get("date")
+    if appointment_date:
+        try:
+            parsed_date = serializers.DateField().to_internal_value(appointment_date)
+            weekday = parsed_date.weekday()
+            day_schedules = [row for row in schedules if row.weekday == weekday]
+            selected = day_schedules[0] if day_schedules else None
+        except serializers.ValidationError as exc:
+            return Response({"date": exc.detail}, status=400)
+    booked = []
+    if parsed_date is not None:
+        booked = list(Appointment.objects.filter(
+            doctor=doctor, appointment_date=parsed_date, is_active=True
+        ).exclude(status="cancelled").order_by("appointment_time").values_list("appointment_time", flat=True))
+    return Response({
+        "doctor_id": doctor_id,
+        "doctor_name": doctor.staff.full_name,
+        "consultation_fee": str(doctor.consultation_fee),
+        "working_hours_start": selected.start_time.strftime("%H:%M") if selected else None,
+        "working_hours_end": selected.end_time.strftime("%H:%M") if selected else None,
+        "working_hours_display": f"{selected.start_time.strftime('%I:%M %p')} - {selected.end_time.strftime('%I:%M %p')}" if selected else "No active schedule for this weekday",
+        "availability_supported": True,
+        "weekly_schedule": [{"weekday": row.weekday, "day": row.get_weekday_display(),
+                             "start_time": row.start_time.strftime("%H:%M"),
+                             "end_time": row.end_time.strftime("%H:%M")} for row in schedules],
+        "availability": {"weekday": weekday, "available": selected is not None,
+                          "intervals": [{"start_time": row.start_time.strftime("%H:%M"),
+                                         "end_time": row.end_time.strftime("%H:%M")} for row in day_schedules],
+                          "booked_appointment_times": [value.strftime("%H:%M") for value in booked]},
+        "message": "Availability is based on the doctor's recurring weekly schedule."
+    })
+
+
+@api_view(["POST"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def assign_lab_requests(request):
+    if request.method == "GET":
+        rows = PrescriptionLabTest.objects.filter(
+            is_active=True, prescription__is_active=True,
+            prescription__consultation__is_active=True,
+        ).exclude(laborderitem__isnull=False).select_related(
+            "prescription__consultation__appointment", "prescription__doctor",
+            "prescription__patient", "test",
+        ).order_by("prescription_lab_test_id")
+        technicians = LabTechnician.objects.filter(
+            is_active=True, staff__is_active=True, staff__user__is_active=True,
+            staff__user__role__is_active=True,
+            staff__user__role__role_name__iregex=r"^(lab technician|laboratory technician)$",
+        ).select_related("staff").order_by("staff__full_name")
+        return Response({
+            "requests": [{
+                "request_id": row.prescription_lab_test_id,
+                "patient_id": row.prescription.patient_id,
+                "patient_name": row.prescription.patient.full_name,
+                "doctor_id": row.prescription.doctor_id,
+                "doctor_name": row.prescription.doctor.staff.full_name,
+                "appointment_id": row.prescription.consultation.appointment_id,
+                "test_name": row.test.test_name,
+                "instructions": row.instructions,
+            } for row in rows],
+            "technicians": [{"technician_id": row.technician_id, "name": row.staff.full_name}
+                            for row in technicians],
+        })
+    request_ids = request.data.get("prescription_lab_test_ids")
+    technician_id = request.data.get("technician_id")
+    priority = str(request.data.get("priority", "")).strip().lower()
+    if priority not in {"normal", "urgent"}:
+        return Response({"priority": "Choose normal or urgent."}, status=400)
+    if not isinstance(request_ids, list) or not request_ids or not all(
+        isinstance(value, int) and value > 0 for value in request_ids
+    ) or len(set(request_ids)) != len(request_ids):
+        return Response({"prescription_lab_test_ids": "Provide unique positive request IDs."}, status=400)
+    technician = LabTechnician.objects.select_related("staff__user").filter(
+        technician_id=technician_id, is_active=True, staff__is_active=True,
+        staff__user__is_active=True, staff__user__role__is_active=True,
+        staff__user__role__role_name__iregex=r"^(lab technician|laboratory technician)$",
+    ).first()
+    if technician is None:
+        return Response({"technician_id": "Active Laboratory Technician was not found."}, status=400)
+
+    with transaction.atomic():
+        requests = list(PrescriptionLabTest.objects.select_for_update().filter(
+            prescription_lab_test_id__in=request_ids, is_active=True,
+            prescription__is_active=True,
+            prescription__consultation__is_active=True,
+        ).select_related("prescription__consultation__appointment", "prescription__doctor", "prescription__patient", "test"))
+        if len(requests) != len(request_ids):
+            return Response({"prescription_lab_test_ids": "One or more active requests were not found."}, status=404)
+        appointments = {row.prescription.consultation.appointment_id for row in requests}
+        doctors = {row.prescription.doctor_id for row in requests}
+        patients = {row.prescription.patient_id for row in requests}
+        if len(appointments) != 1 or len(doctors) != 1 or len(patients) != 1:
+            return Response({"prescription_lab_test_ids": "Requests must belong to the same patient appointment."}, status=400)
+        if any(row.prescription.consultation.doctor_id != row.prescription.doctor_id
+               or row.prescription.consultation.appointment.patient_id != row.prescription.patient_id
+               for row in requests):
+            return Response({"prescription_lab_test_ids": "A request has inconsistent doctor, appointment, or patient relationships."}, status=400)
+        if LabOrderItem.objects.filter(prescription_lab_test_id__in=request_ids).exists():
+            return Response({"prescription_lab_test_ids": "A request has already been assigned to a laboratory order."}, status=409)
+
+        first = requests[0]
+        appointment = first.prescription.consultation.appointment
+        order = LabOrder.objects.create(
+            patient_id=next(iter(patients)), doctor_id=next(iter(doctors)),
+            appointment=appointment, order_date=appointment.appointment_date,
+            priority=priority, status="pending",
+        )
+        LabOrderItem.objects.bulk_create([
+            LabOrderItem(order=order, test=row.test, prescription_lab_test=row,
+                         technician=technician, status="pending")
+            for row in requests
+        ])
+    return Response({"order_id": order.order_id, "item_count": len(requests),
+                     "technician_id": technician.technician_id}, status=201)
+
+
+@api_view(["GET", "POST"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def appointments(request):
+    receptionist = Receptionist.objects.select_related("staff").filter(
+        receptionist_id=request.session["receptionist_id"], is_active=True,
+        staff__is_active=True).first()
+    if receptionist is None:
+        return Response({"error": "Active receptionist record was not found."}, status=403)
+
+    if request.method == "POST":
+        serializer = AppointmentCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            appointment = create_appointment(
+                patient=data["patient"], department_id=data["department"].department_id,
+                doctor_id=data["doctor"].doctor_id, appointment_date=data["appointment_date"],
+                appointment_time=data["appointment_time"], reason=data["reason"],
+                receptionist=receptionist, appointment_type=data.get("appointment_type", "pre_booking"))
+        except AppointmentRuleError as exc:
+            return Response({"error": exc.detail}, status=exc.status_code)
+        except IntegrityError:
+            return Response({"error": "Appointment or bill conflicts with existing data."}, status=409)
+        return Response(AppointmentSerializer(appointment).data, status=201)
+
+    rows = Appointment.objects.filter(receptionist=receptionist, is_active=True).select_related(
+        "patient", "doctor", "doctor__staff", "doctor__department"
+    ).prefetch_related("bill_set")
+    date_value = request.query_params.get("date")
+    if date_value:
+        try:
+            date_value = serializers.DateField().run_validation(date_value)
+        except serializers.ValidationError as exc:
+            return Response({"date": exc.detail}, status=400)
+        rows = rows.filter(appointment_date=date_value)
+
+    doctor_param = request.query_params.get("doctor")
+    if doctor_param:
+        if not doctor_param.isdecimal() or int(doctor_param) < 1:
+            return Response({"doctor": "Must be a positive integer."}, status=400)
+        rows = rows.filter(doctor_id=int(doctor_param))
+
+    dept_param = request.query_params.get("department")
+    if dept_param:
+        if not dept_param.isdecimal() or int(dept_param) < 1:
+            return Response({"department": "Must be a positive integer."}, status=400)
+        rows = rows.filter(doctor__department_id=int(dept_param))
+
+    status_param = request.query_params.get("status")
+    if status_param:
+        valid_statuses = dict(Appointment.STATUS_CHOICES).keys()
+        if status_param not in valid_statuses:
+            return Response({"status": f"Invalid status. Choices are: {', '.join(valid_statuses)}."}, status=400)
+        rows = rows.filter(status=status_param)
+
+    search_param = request.query_params.get("search", "").strip()
+    if search_param:
+        rows = rows.filter(
+            Q(patient__full_name__icontains=search_param) |
+            Q(patient__mobile_number__icontains=search_param) |
+            Q(token_number__icontains=search_param) |
+            Q(doctor__staff__full_name__icontains=search_param)
+        )
+
+    rows = rows.order_by("appointment_date", "doctor_id", "token_number")
+    return Response(AppointmentSerializer(rows, many=True).data)
+
+
+@api_view(["GET", "PATCH"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def appointment_detail(request, appointment_id):
+    if request.method == "GET":
+        appointment = Appointment.objects.filter(
+            appointment_id=appointment_id,
+            receptionist_id=request.session["receptionist_id"],
+            is_active=True
+        ).select_related("patient", "doctor", "doctor__staff", "doctor__department", "receptionist__staff").first()
+        if appointment is None:
+            return Response({"error": "Appointment was not found."}, status=404)
+        return Response(AppointmentDetailSerializer(appointment).data)
+
+    try:
+        with transaction.atomic():
+            appointment = Appointment.objects.select_for_update().select_related(
+                "patient", "doctor", "doctor__staff", "doctor__department"
+            ).get(appointment_id=appointment_id,
+                  receptionist_id=request.session["receptionist_id"], is_active=True)
+            if appointment.status not in ("scheduled", "confirmed"):
+                return Response({"error": "Only scheduled or confirmed appointments can be cancelled."},
+                                status=409)
+            bills = list(Bill.objects.select_for_update().filter(appointment=appointment, is_active=True))
+            if any(bill.payment_set.filter(is_active=True).exists() for bill in bills):
+                return Response({"error": "An appointment with recorded payments cannot be cancelled."},
+                                status=409)
+            appointment.status = "cancelled"
+            appointment.save(update_fields=["status"])
+            for bill in bills:
+                bill.is_active = False
+                bill.save(update_fields=["is_active"])
+    except Appointment.DoesNotExist:
+        return Response({"error": "Appointment was not found."}, status=404)
+    return Response(AppointmentSerializer(appointment).data)
+
+
+cancel_appointment = appointment_detail
+
+
+@api_view(["GET", "POST"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def appointment_payments(request, appointment_id):
+    if request.method == "GET":
+        appointment = Appointment.objects.filter(
+            appointment_id=appointment_id,
+            is_active=True,
+            receptionist_id=request.session["receptionist_id"]
+        ).first()
+        if appointment is None:
+            return Response({"error": "Appointment was not found."}, status=404)
+        bills = Bill.objects.filter(appointment=appointment, is_active=True)
+        payments = Payment.objects.filter(bill__in=bills, is_active=True).order_by("-payment_date")
+        return Response(PaymentHistorySerializer(payments, many=True).data)
+
+    serializer = PaymentInputSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    try:
+        with transaction.atomic():
+            appointment = Appointment.objects.select_for_update().get(
+                appointment_id=appointment_id, is_active=True,
+                receptionist_id=request.session["receptionist_id"])
+            bills = list(Bill.objects.select_for_update().filter(
+                appointment=appointment, is_active=True))
+            if not bills:
+                return Response({"error": "Active appointment bill was not found."}, status=404)
+            if len(bills) != 1:
+                return Response({"error": "Appointment has multiple active bills."}, status=409)
+            bill = bills[0]
+            if appointment.status == "cancelled":
+                return Response({"error": "Cancelled appointments cannot receive payment."}, status=409)
+            paid = bill.payment_set.filter(is_active=True).aggregate(total=Sum("amount"))["total"]
+            paid = paid or Decimal("0.00")
+            if bill.payment_status == "paid" or paid >= bill.total_amount:
+                return Response({"error": "This bill is already fully paid."}, status=400)
+            amount = serializer.validated_data["amount"]
+            if paid + amount > bill.total_amount:
+                return Response({"amount": "Payment exceeds the outstanding balance."}, status=400)
+            payment = serializer.save(bill=bill, payment_date=timezone.now())
+            paid += amount
+            bill.payment_status = "paid" if paid == bill.total_amount else "partial"
+            bill.save(update_fields=["payment_status"])
+            appointment.payment_status = "Paid" if bill.payment_status == "paid" else "Pending"
+            appointment.save(update_fields=["payment_status"])
+    except Appointment.DoesNotExist:
+        return Response({"error": "Appointment was not found."}, status=404)
+    return Response({"payment_id": payment.payment_id, "bill_id": bill.bill_id,
+                     "bill_number": f"BILL-{bill.bill_id:04d}",
+                     "bill_payment_status": bill.payment_status,
+                     "appointment_payment_status": appointment.payment_status,
+                     "paid_total": str(paid), "balance": str(bill.total_amount - paid),
+                     "payment_method": payment.payment_method,
+                     "transaction_reference": payment.transaction_reference,
+                     "payment_date": payment.payment_date.isoformat(),
+                     "queue_eligible": appointment_queue_eligible(appointment)}, status=201)
+
+
+record_payment = appointment_payments
+
+
+# =========================================================
+# BILLING ENDPOINTS
+# =========================================================
+
+@api_view(["GET"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def billing_list(request):
+    bills = Bill.objects.filter(is_active=True).select_related(
+        "patient", "appointment", "appointment__doctor",
+        "appointment__doctor__staff", "appointment__doctor__department"
+    ).prefetch_related("payment_set")
+
+    status_param = request.query_params.get("status")
+    if status_param and status_param != "all":
+        bills = bills.filter(payment_status=status_param.lower())
+
+    search_param = request.query_params.get("search", "").strip()
+    if search_param:
+        bills = bills.filter(
+            Q(patient__full_name__icontains=search_param) |
+            Q(patient__mobile_number__icontains=search_param) |
+            Q(appointment__token_number__icontains=search_param) |
+            Q(appointment__doctor__staff__full_name__icontains=search_param) |
+            Q(bill_id__icontains=search_param) |
+            Q(appointment__appointment_id__icontains=search_param)
+        )
+
+    date_param = request.query_params.get("date")
+    if date_param:
+        bills = bills.filter(bill_date=date_param)
+
+    bills = bills.order_by("-bill_id")
+    return Response(BillSerializer(bills, many=True).data)
+
+
+@api_view(["GET"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def bill_detail(request, bill_id):
+    bill = Bill.objects.filter(bill_id=bill_id, is_active=True).select_related(
+        "patient", "appointment", "appointment__doctor",
+        "appointment__doctor__staff", "appointment__doctor__department"
+    ).prefetch_related("payment_set").first()
+    if not bill:
+        return Response({"error": "Bill was not found."}, status=404)
+
+    data = BillSerializer(bill).data
+    data["clinic"] = {
+        "name": "MEDICARE",
+        "subtitle": "CLINIC MANAGEMENT SYSTEM",
+        "tagline": "Quality Healthcare You Can Trust",
+        "department": bill.appointment.doctor.department.department_name if bill.appointment and bill.appointment.doctor else "",
+    }
+    return Response(data)
+
+
+@api_view(["GET", "POST"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def bill_payments(request, bill_id):
+    bill = Bill.objects.filter(bill_id=bill_id, is_active=True).select_related("appointment").first()
+    if not bill:
+        return Response({"error": "Bill was not found."}, status=404)
+
+    if request.method == "GET":
+        payments = bill.payment_set.filter(is_active=True).order_by("-payment_date")
+        return Response(PaymentHistorySerializer(payments, many=True).data)
+
+    serializer = PaymentInputSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    try:
+        with transaction.atomic():
+            bill_ref = Bill.objects.select_related("appointment").get(bill_id=bill_id, is_active=True)
+            appointment = None
+            if bill_ref.appointment_id:
+                appointment = Appointment.objects.select_for_update().get(
+                    appointment_id=bill_ref.appointment_id
+                )
+                if not appointment.is_active or appointment.status == "cancelled":
+                    return Response({"error": "Cancelled appointments cannot receive payment."}, status=409)
+            bill = Bill.objects.select_for_update().get(bill_id=bill_id, is_active=True)
+            paid = bill.payment_set.filter(is_active=True).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+
+            if bill.payment_status == "paid" or paid >= bill.total_amount:
+                return Response({"error": "This bill is already fully paid."}, status=400)
+
+            amount = serializer.validated_data["amount"]
+            balance = bill.total_amount - paid
+            if amount > balance:
+                return Response({"amount": f"Payment amount cannot exceed the amount due (₹{balance})."}, status=400)
+
+            payment = serializer.save(bill=bill, payment_date=timezone.now())
+            paid += amount
+            bill.payment_status = "paid" if paid == bill.total_amount else "partial"
+            bill.save(update_fields=["payment_status"])
+
+            if appointment:
+                appointment.payment_status = "Paid" if bill.payment_status == "paid" else "Pending"
+                appointment.save(update_fields=["payment_status"])
+    except Bill.DoesNotExist:
+        return Response({"error": "Bill was not found."}, status=404)
+
+    return Response({
+        "payment_id": payment.payment_id,
+        "bill_id": bill.bill_id,
+        "bill_number": f"BILL-{bill.bill_id:04d}",
+        "bill_payment_status": bill.payment_status,
+        "paid_total": str(paid),
+        "balance": str(bill.total_amount - paid),
+        "payment_method": payment.payment_method,
+        "transaction_reference": payment.transaction_reference,
+        "payment_date": payment.payment_date.isoformat(),
+        "queue_eligible": appointment_queue_eligible(appointment) if appointment else False,
+    }, status=201)
+
+
+# =========================================================
+# TOKEN QUEUE ENDPOINTS
+# =========================================================
+
+def _token_sort_key(appointment):
+    try:
+        return (0, int(appointment.token_number))
+    except (ValueError, TypeError):
+        return (1, str(appointment.token_number))
+
+
+@api_view(["GET"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def token_queue_today(request):
+    today = timezone.localtime().date()
+    rows = Appointment.objects.filter(
+        appointment_date=today, is_active=True
+    ).exclude(status="cancelled").select_related(
+        "patient", "doctor", "doctor__staff", "doctor__department"
+    )
+
+    doctor_param = request.query_params.get("doctor")
+    if doctor_param:
+        if doctor_param.isdecimal() and int(doctor_param) > 0:
+            rows = rows.filter(doctor_id=int(doctor_param))
+
+    all_appointments = list(rows)
+
+    # Only fully paid appointments are eligible for the active doctor queue.
+    paid_appointments = [a for a in all_appointments if appointment_queue_eligible(a)]
+
+    # Now Serving
+    serving_appts = [a for a in paid_appointments if a.status == "serving"]
+    now_serving = TokenQueueAppointmentSerializer(serving_appts[0]).data if serving_appts else None
+
+    # Waiting
+    waiting_appts = [a for a in paid_appointments if a.status in ("scheduled", "confirmed")]
+    waiting_appts.sort(key=_token_sort_key)
+    next_token = waiting_appts[0].token_number if waiting_appts else None
+    next_token_display = f"{int(next_token):03d}" if next_token and next_token.isdigit() else next_token
+
+    # Completed
+    completed_appts = [a for a in all_appointments if a.status == "completed"]
+    completed_appts.sort(key=_token_sort_key, reverse=True)
+
+    return Response({
+        "date": str(today),
+        "now_serving": now_serving,
+        "waiting_count": len(waiting_appts),
+        "next_token": next_token_display,
+        "waiting_queue": TokenQueueAppointmentSerializer(waiting_appts, many=True).data,
+        "completed_today": TokenQueueAppointmentSerializer(completed_appts, many=True).data,
+        "total_today": len(all_appointments),
+    })
+
+
+@api_view(["POST"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def token_queue_call_next(request):
+    today = timezone.localtime().date()
+    doctor_param = request.data.get("doctor") or request.data.get("doctor_id") or request.query_params.get("doctor")
+    doctor_id = int(doctor_param) if doctor_param and str(doctor_param).isdecimal() else None
+
+    with transaction.atomic():
+        # Check if already serving for the target doctor (or all active doctors)
+        serving_query = Appointment.objects.select_for_update().filter(
+            appointment_date=today, is_active=True, status="serving"
+        ).select_related("patient", "doctor", "doctor__staff")
+        if doctor_id:
+            serving_query = serving_query.filter(doctor_id=doctor_id)
+            serving = next((a for a in serving_query if appointment_queue_eligible(a)), None)
+            if serving:
+                return Response({
+                    "error": f"Token #{serving.token_number} ({serving.patient.full_name}) is currently serving. Complete the current consultation before calling next."
+                }, status=409)
+
+        # Get waiting appointments
+        waiting_query = Appointment.objects.select_for_update().filter(
+            appointment_date=today, is_active=True, status__in=["scheduled", "confirmed"],
+            payment_status="Paid"
+        ).select_related("patient", "doctor", "doctor__staff", "doctor__department")
+        if doctor_id:
+            waiting_query = waiting_query.filter(doctor_id=doctor_id)
+
+        waiting_list = [a for a in waiting_query if appointment_queue_eligible(a)]
+        if not waiting_list:
+            return Response({
+                "message": "No patients waiting.",
+                "now_serving": None
+            }, status=200)
+
+        waiting_list.sort(key=_token_sort_key)
+
+        if not doctor_id:
+            eligible_serving = [a for a in serving_query if appointment_queue_eligible(a)]
+            serving_doctor_ids = {a.doctor_id for a in eligible_serving}
+            eligible = [a for a in waiting_list if a.doctor_id not in serving_doctor_ids]
+            if not eligible:
+                first_serving = eligible_serving[0]
+                return Response({
+                    "error": f"Token #{first_serving.token_number} ({first_serving.patient.full_name}) is currently serving. Complete the current consultation before calling next."
+                }, status=409)
+            next_appt = eligible[0]
+        else:
+            next_appt = waiting_list[0]
+
+        next_appt.status = "serving"
+        next_appt.save(update_fields=["status"])
+
+    return Response({
+        "message": f"Token #{next_appt.token_number} called successfully.",
+        "now_serving": TokenQueueAppointmentSerializer(next_appt).data
+    }, status=200)
+
+
+@api_view(["POST"])
+@authentication_classes([ReceptionistSessionAuthentication])
+@permission_classes([IsReceptionistSession])
+def token_queue_complete(request, appointment_id):
+    today = timezone.localtime().date()
+    with transaction.atomic():
+        try:
+            appointment = Appointment.objects.select_for_update().select_related(
+                "patient", "doctor", "doctor__staff", "doctor__department"
+            ).get(
+                appointment_id=appointment_id,
+                is_active=True,
+                appointment_date=today
+            )
+        except Appointment.DoesNotExist:
+            return Response({"error": "Appointment token was not found for today."}, status=404)
+
+        if appointment.status != "serving":
+            return Response({
+                "error": f"Only currently serving tokens can be completed. (Current status: {appointment.status})"
+            }, status=400)
+
+        if not appointment_queue_eligible(appointment):
+            return Response({"error": "Payment must be confirmed before completing a queue token."}, status=409)
+
+        appointment.status = "completed"
+        appointment.save(update_fields=["status"])
+
+    return Response({
+        "message": f"Token #{appointment.token_number} ({appointment.patient.full_name}) marked as completed.",
+        "completed": TokenQueueAppointmentSerializer(appointment).data
+    }, status=200)
+

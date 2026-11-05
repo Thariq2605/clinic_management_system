@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>MEDICARE - Doctor Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet"
+    >
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body class="dashboard-page">
+
+<div class="app-container">
+
+    <!-- ==========================================
+         SIDEBAR
+         ========================================== -->
+
+    <aside id="sidebar" class="sidebar">
+
+        <!-- Logo -->
+        <div class="sidebar-logo">
+            <img src="../assets/logo-white.svg" alt="MEDICARE" style="height: 38px; display: block; max-width: 100%;">
+        </div>
+
+
+        <!-- Navigation -->
+        <nav class="sidebar-nav">
+
+            <a href="dashboard.html" class="nav-item active">
+
+                <span class="nav-icon">▣</span>
+
+                <span>Dashboard</span>
+
+            </a>
+
+
+            <a href="appointment.html" class="nav-item">
+
+                <span class="nav-icon">▤</span>
+
+                <span>Today's<br>Appointments</span>
+
+                <span class="nav-badge" id="appointmentBadge">0</span>
+
+            </a>
+
+
+            <a href="patients.html" class="nav-item">
+
+                <span class="nav-icon">♙</span>
+
+                <span>Patients</span>
+
+            </a>
+
+
+            <a href="medicalhistory.html" class="nav-item">
+
+                <span class="nav-icon">◫</span>
+
+                <span>Medical History</span>
+
+            </a>
+
+
+            <a href="consultation.html" class="nav-item">
+
+                <span class="nav-icon">♧</span>
+
+                <span>Consultations</span>
+
+            </a>
+
+
+            <a href="prescription.html" class="nav-item">
+
+                <span class="nav-icon">⌕</span>
+
+                <span>Prescriptions</span>
+
+            </a>
+
+
+            <a href="labtest.html" class="nav-item">
+
+                <span class="nav-icon">♧</span>
+
+                <span>Lab Tests</span>
+
+            </a>
+
+
+            <a href="medicalrecord.html" class="nav-item">
+
+                <span class="nav-icon">▱</span>
+
+                <span>Medical Records</span>
+
+            </a>
+
+
+            <a href="#" class="nav-item">
+
+                <span class="nav-icon">◎</span>
+
+                <span>Profile</span>
+
+            </a>
+
+
+            <a href="#" class="nav-item">
+
+                <span class="nav-icon">⚙</span>
+
+                <span>Settings</span>
+
+            </a>
+
+        </nav>
+
+
+        <!-- Help -->
+        <div class="sidebar-help">
+
+            <div class="help-icon">?</div>
+
+            <div>
+                <strong>Need help?</strong>
+
+                <p>
+                    Contact clinic support for system assistance.
+                </p>
+            </div>
+
+        </div>
+
+    </aside>
+
+
+    <!-- ==========================================
+         MAIN AREA
+         ========================================== -->
+
+    <main class="main-content">
+
+        <!-- ======================================
+             TOP BAR
+             ====================================== -->
+
+        <header class="topbar">
+
+            <div class="topbar-spacer"></div>
+
+
+            <!-- Search -->
+            <div class="global-search">
+
+                <span>⌕</span>
+
+                <input
+                    type="text"
+                    placeholder="Search patients, records..."
+                >
+
+                <small>⌘ K</small>
+
+            </div>
+
+
+            <!-- Notification -->
+            <button class="notification-button">
+                ♧
+            </button>
+
+
+            <!-- Doctor -->
+            <div class="doctor-profile">
+
+                <div class="doctor-avatar" id="doctorAvatar">
+                    AM
+                </div>
+
+                <div class="doctor-info">
+
+                    <strong id="doctorName">
+                        Dr. Amelia Morgan
+                    </strong>
+
+                    <span>
+                        General Physician
+                    </span>
+
+                </div>
+
+                <span class="profile-arrow">⌄</span>
+
+            </div>
+
+        </header>
+
+
+        <!-- ======================================
+             PAGE CONTENT
+             ====================================== -->
+
+        <section class="dashboard-content">
+
+
+            <!-- Page heading -->
+            <div class="dashboard-heading">
+
+                <div>
+
+                    <p class="page-date" id="currentDate">
+                        MONDAY, 29 SEPTEMBER 2026
+                    </p>
+
+                    <h1>Dashboard</h1>
+
+                </div>
+
+            </div>
+
+
+            <!-- Greeting -->
+            <div class="greeting-row">
+
+                <div>
+
+                    <h2 id="greeting">
+                        Good morning, Dr. Amelia Morgan
+                    </h2>
+
+                    <p>
+                        Here's what's happening at MEDICARE clinic today.
+                    </p>
+
+                </div>
+
+
+                <div class="heading-actions">
+
+                    <button
+                        class="secondary-button"
+                        onclick="goToPatients()"
+                    >
+                        ♙ &nbsp; View Patients
+                    </button>
+
+                    <button
+                        class="primary-button"
+                        onclick="startConsultation()"
+                    >
+                        + &nbsp; Start Consultation
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- ==================================
+                 STAT CARDS
+                 ================================== -->
+
+            <div class="stats-grid">
+
+
+                <!-- Today's appointments -->
+                <div class="stat-card">
+
+                    <div class="stat-card-top">
+
+                        <span class="stat-label">
+                            Today's Appointments
+                        </span>
+
+                        <div class="stat-icon blue">
+                            ▣
+                        </div>
+
+                    </div>
+
+                    <div
+                        class="stat-number"
+                        id="todayAppointments"
+                    >
+                        0
+                    </div>
+
+                    <p><span id="appointmentChange">0 appointments vs yesterday</span></p>
+
+                </div>
+
+
+                <!-- Completed -->
+                <div class="stat-card">
+
+                    <div class="stat-card-top">
+
+                        <span class="stat-label">
+                            Completed
+                        </span>
+
+                        <div class="stat-icon green">
+                            ✓
+                        </div>
+
+                    </div>
+
+                    <div
+                        class="stat-number"
+                        id="completedAppointments"
+                    >
+                        0
+                    </div>
+
+                    <p>
+                        <span id="completedPercentage">
+                            0%
+                        </span>
+                        of today's schedule
+                    </p>
+
+                </div>
+
+
+                <!-- Pending -->
+                <div class="stat-card">
+
+                    <div class="stat-card-top">
+
+                        <span class="stat-label">
+                            Pending
+                        </span>
+
+                        <div class="stat-icon yellow">
+                            ◷
+                        </div>
+
+                    </div>
+
+                    <div
+                        class="stat-number"
+                        id="pendingAppointments"
+                    >
+                        0
+                    </div>
+
+                    <p>
+                        Next patient in
+                        <span id="nextPatientTime">
+                            --
+                        </span>
+                    </p>
+
+                </div>
+
+
+                <!-- Patients -->
+                <div class="stat-card">
+
+                    <div class="stat-card-top">
+
+                        <span class="stat-label">
+                            Patients Seen
+                        </span>
+
+                        <div class="stat-icon purple">
+                            ♙
+                        </div>
+
+                    </div>
+
+                    <div
+                        class="stat-number"
+                        id="patientsSeen"
+                    >
+                        0
+                    </div>
+
+                    <p>
+                        <span id="patientChange">
+                            +0
+                        </span>
+                        this month
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <!-- ==================================
+                 APPOINTMENTS CARD
+                 ================================== -->
+
+            <div class="appointments-card">
+
+                <div class="card-header">
+
+                    <div>
+
+                        <h2>
+                            Today's appointments
+                        </h2>
+
+                        <p id="appointmentSummary">
+                            Loading appointments...
+                        </p>
+
+                    </div>
+
+
+                    <button
+                        class="view-all-button"
+                        onclick="window.location.href='appointment.html'"
+                    >
+                        View all appointments
+                        →
+                    </button>
+
+                </div>
+
+
+                <!-- Table -->
+                <div class="table-wrapper">
+
+                    <table class="appointments-table">
+
+                        <thead>
+
+                        <tr>
+
+                            <th>TOKEN</th>
+
+                            <th>TIME</th>
+
+                            <th>PATIENT</th>
+
+                            <th>APPOINTMENT TYPE</th>
+
+                            <th>PAYMENT</th>
+
+                            <th>STATUS</th>
+
+                            <th>ACTIONS</th>
+
+                        </tr>
+
+                        </thead>
+
+
+                        <tbody id="appointmentsTableBody">
+
+                        <tr>
+
+                            <td colspan="7" class="loading-cell">
+                                Loading appointments...
+                            </td>
+
+                        </tr>
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+
+                <!-- Bottom -->
+                <div class="table-footer">
+
+                    <span id="showingText">
+                        Showing 0 appointments
+                    </span>
+
+
+                    <div class="pagination">
+
+                        <button>
+                            ‹
+                        </button>
+
+                        <button class="page-active">
+                            1
+                        </button>
+
+                        <button>
+                            2
+                        </button>
+
+                        <button>
+                            ›
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<script src="js/auth.js?v=2.0"></script>
+<script src="js/dashboard.js?v=2.0"></script>
+<script src="js/sidebar.js?v=2.0"></script>
+
+</body>
+</html>

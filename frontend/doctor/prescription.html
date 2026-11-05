@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>MEDICARE - Prescriptions</title>
+    <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+
+    <link
+        rel="stylesheet"
+        href="css/style.css"
+    >
+
+</head>
+
+
+<body>
+
+<div class="app-container">
+
+
+    <!-- ================= SIDEBAR ================= -->
+
+    <aside id="sidebar" class="sidebar">
+
+        <div class="sidebar-logo">
+            <img src="../assets/logo-white.svg" alt="MEDICARE" style="height: 38px; display: block; max-width: 100%;">
+        </div>
+
+
+        <nav class="sidebar-nav">
+
+            <a
+                href="dashboard.html"
+                class="nav-item"
+            >
+                <span>▣</span>
+                Dashboard
+            </a>
+
+
+            <a
+                href="appointment.html"
+                class="nav-item"
+            >
+                <span>▦</span>
+                Appointments
+            </a>
+
+
+            <a
+                href="consultation.html"
+                class="nav-item"
+            >
+                <span>☑</span>
+                Consultation
+            </a>
+
+
+            <a
+                href="#"
+                class="nav-item active"
+            >
+                <span>▤</span>
+                Prescription
+            </a>
+
+
+            <a
+                href="medicalhistory.html"
+                class="nav-item"
+            >
+                <span>▤</span>
+                Medical History
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-bottom">
+
+            <button
+                class="logout-btn"
+                onclick="logout()"
+            >
+                <span>⇥</span>
+                Logout
+            </button>
+
+        </div>
+
+    </aside>
+
+
+
+    <!-- ================= MAIN ================= -->
+
+    <main class="main-content">
+
+
+        <!-- TOP BAR -->
+
+        <header class="topbar">
+
+            <div class="search-box">
+
+                <span>⌕</span>
+
+                <input
+                    type="text"
+                    placeholder="Search..."
+                >
+
+            </div>
+
+
+            <div class="doctor-profile">
+
+                <div class="doctor-avatar">
+                    D
+                </div>
+
+
+                <div>
+
+                    <div
+                        class="doctor-name"
+                        id="doctorName"
+                    >
+                        Doctor
+                    </div>
+
+                    <div class="doctor-role">
+                        Doctor
+                    </div>
+
+                </div>
+
+
+                <span class="profile-arrow">
+                    ⌄
+                </span>
+
+            </div>
+
+        </header>
+
+
+
+        <!-- ================= PAGE CONTENT ================= -->
+
+        <section class="page-content">
+
+
+            <!-- BACK -->
+
+            <div
+                class="back-link"
+                onclick="goBack()"
+            >
+
+                ← Back to Consultation
+
+            </div>
+
+
+
+            <!-- HEADER -->
+
+            <div class="page-header">
+
+                <div>
+
+                    <h1>
+                        Prescription
+                    </h1>
+
+                    <p>
+                        Create a prescription from a consultation or view saved prescriptions
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div id="prescriptionHome" class="content-card" style="display:none;">
+                <div class="card-header"><div><h2>Select a Consultation</h2><p>Choose a consultation to create its prescription.</p></div>
+                  <button class="secondary-btn" onclick="window.location.href='prescription.html?mode=history'">View Prescription History</button></div>
+                <div id="consultationOptions"></div>
+            </div>
+
+
+
+            <!-- ================= PATIENT CARD ================= -->
+
+            <div class="prescription-patient-card">
+
+
+                <div
+                    class="patient-avatar-large"
+                    id="patientInitial"
+                >
+                    P
+                </div>
+
+
+                <div class="patient-summary">
+
+                    <h2 id="patientName">
+                        Loading...
+                    </h2>
+
+                    <p>
+
+                        Patient ID:
+                        <span id="patientId">
+                            -
+                        </span>
+
+                    </p>
+
+                </div>
+
+
+                <div class="token-box">
+
+                    <span>
+                        Consultation
+                    </span>
+
+                    <strong id="consultationId">
+                        -
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- ================= ERROR ================= -->
+
+            <div
+                id="errorMessage"
+                class="error-message"
+                style="display:none;"
+            ></div>
+
+            <div id="prescriptionHistory" class="content-card" style="display:none;">
+                <div class="card-header"><div><h2>Prescription History</h2><p>Your previously created prescriptions</p></div><button class="secondary-btn" onclick="window.location.href='prescription.html'">Back to Prescriptions</button></div>
+                <div id="prescriptionHistoryList"></div>
+            </div>
+
+
+
+            <!-- ================= PRESCRIPTION FORM ================= -->
+
+            <div id="prescriptionFormCard" class="content-card">
+
+
+                <div class="card-header">
+
+                    <div>
+
+                        <h2>
+                            Medicines
+                        </h2>
+
+                        <p>
+                            Add the medicines prescribed
+                            for this patient.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- MEDICINE FORM -->
+
+                <form id="medicineForm">
+
+
+                    <div class="prescription-grid">
+
+
+                        <!-- MEDICINE ID -->
+
+                        <div class="form-group">
+
+                            <label for="medicineId">
+
+                                Medicine ID
+
+                            </label>
+
+                            <select id="medicineId" required>
+                                <option value="">Select medicine</option>
+                            </select>
+
+                        </div>
+
+
+
+                        <!-- DOSAGE -->
+
+                        <div class="form-group">
+
+                            <label for="dosage">
+
+                                Dosage
+
+                            </label>
+
+                            <input
+                                type="text"
+                                id="dosage"
+                                placeholder="e.g. 500 mg"
+                                required
+                            >
+
+                        </div>
+
+
+
+                        <!-- FREQUENCY -->
+
+                        <div class="form-group">
+
+                            <label for="frequency">
+
+                                Frequency
+
+                            </label>
+
+                            <input
+                                type="text"
+                                id="frequency"
+                                placeholder="e.g. Twice daily"
+                                required
+                            >
+
+                        </div>
+
+
+
+                        <!-- DURATION -->
+
+                        <div class="form-group">
+
+                            <label for="duration">
+
+                                Duration (days)
+
+                            </label>
+
+                            <input
+                                type="number"
+                                id="duration"
+                                min="1"
+                                placeholder="e.g. 5"
+                                required
+                            >
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- INSTRUCTIONS -->
+
+                    <div class="form-group">
+
+                        <label for="instructions">
+
+                            Instructions
+
+                        </label>
+
+                        <textarea
+                            id="instructions"
+                            rows="4"
+                            placeholder="e.g. Take after food"
+                        ></textarea>
+
+                    </div>
+
+
+
+                    <button
+                        type="button"
+                        class="secondary-btn"
+                        id="addMedicineButton"
+                    >
+
+                        + Add Medicine
+
+                    </button>
+
+
+                </form>
+
+
+
+                <!-- ================= MEDICINE LIST ================= -->
+
+                <div class="medicine-list-section">
+
+                    <h3>
+                        Prescribed Medicines
+                    </h3>
+
+
+                    <div id="medicineList">
+
+                        <div class="empty-medicine">
+
+                            No medicines added yet.
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- ================= SAVE ================= -->
+
+                <div class="form-actions">
+
+
+                    <button
+                        type="button"
+                        class="secondary-btn"
+                        onclick="goBack()"
+                    >
+
+                        Cancel
+
+                    </button>
+
+
+                    <button
+                        type="button"
+                        class="primary-btn"
+                        id="savePrescriptionButton"
+                    >
+
+                        Save Prescription
+
+                    </button>
+
+                </div>
+
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+
+<script src="js/auth.js"></script>
+
+<script src="js/prescription.js"></script>
+<script src="js/sidebar.js"></script>
+
+</body>
+
+</html>

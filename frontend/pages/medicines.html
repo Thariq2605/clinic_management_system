@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medicines | ClinixOne Care Operations</title>
+    <!-- ClinixOne custom CSS -->
+    <link rel="stylesheet" href="../css/admin.css">
+    <style>
+        .page-card {
+            background: #ffffff;
+            border: 1px solid #e1e8f0;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(20, 55, 90, 0.06);
+            padding: 18px;
+        }
+
+        .medicines-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .medicine-search {
+            width: 270px;
+            height: 34px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #e1e8f0;
+            border-radius: 6px;
+            padding: 0 10px;
+            background: #ffffff;
+        }
+
+        .medicine-search input {
+            width: 100%;
+            border: none;
+            outline: none;
+            font-size: 9px;
+            color: var(--text);
+        }
+
+        .medicine-filter {
+            height: 34px;
+            padding: 0 10px;
+            border: 1px solid #e1e8f0;
+            border-radius: 6px;
+            background: #ffffff;
+            color: #526276;
+            font-size: 9px;
+            outline: none;
+        }
+
+        .add-medicine-btn {
+            height: 34px;
+            padding: 0 14px;
+            background: #1769e8;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            font-size: 9px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .add-medicine-btn:hover {
+            background: #0f5fd6;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="admin-layout">
+
+    <!-- ================= SIDEBAR ================= -->
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon">+</div>
+            <div class="logo-text">
+                <h2>CLINIC SYSTEM</h2>
+                <span>HEALTHCARE MANAGEMENT</span>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="admin_dashboard.html" class="nav-item">
+                <span class="nav-icon">▦</span>
+                <span>Dashboard</span>
+            </a>
+            <a href="users.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Users</span>
+            </a>
+            <a href="doctors.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Doctors</span>
+            </a>
+            <a href="receptionists.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Receptionists</span>
+            </a>
+            <a href="patients.html" class="nav-item">
+                <span class="nav-icon">♡</span>
+                <span>Patients</span>
+            </a>
+            <a href="departments.html" class="nav-item">
+                <span class="nav-icon">▤</span>
+                <span>Departments</span>
+            </a>
+            <a href="specializations.html" class="nav-item">
+                <span class="nav-icon">✦</span>
+                <span>Specializations</span>
+            </a>
+            <a href="medicines.html" class="nav-item active">
+                <span class="nav-icon">▱</span>
+                <span>Medicines</span>
+            </a>
+            <a href="lab_tests.html" class="nav-item">
+                <span class="nav-icon">⚗</span>
+                <span>Lab Tests</span>
+            </a>
+            <a href="appointments.html" class="nav-item">
+                <span class="nav-icon">▣</span>
+                <span>Appointments</span>
+            </a>
+            <a href="billing.html" class="nav-item">
+                <span class="nav-icon">▤</span>
+                <span>Billing</span>
+            </a>
+            <a href="payments.html" class="nav-item">
+                <span class="nav-icon">▣</span>
+                <span>Payments</span>
+            </a>
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">▥</span>
+                <span>Reports</span>
+            </a>
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙</span>
+                <span>Settings</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <span>24/7 clinic support · Contact team →</span>
+        </div>
+    </aside>
+
+    <!-- ================= MAIN CONTENT ================= -->
+    <main class="main-content">
+
+        <!-- Top Header -->
+        <header class="top-header">
+            <div class="breadcrumb">
+                <span>Clinic management</span>
+                <span>/</span>
+                <strong>Medicines</strong>
+            </div>
+
+            <div class="header-right">
+                <div class="search-box">
+                    <span>⌕</span>
+                    <input type="text" placeholder="Search patients, doctors, records...">
+                    <small>⌘ K</small>
+                </div>
+
+                <button class="notification-btn" title="Notifications">♧</button>
+
+                <div class="profile">
+                    <div class="profile-avatar">AD</div>
+                    <div class="profile-name">Administrator</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <section class="dashboard-content">
+
+            <div class="page-heading">
+                <div>
+                    <h1>Pharmacy Inventory</h1>
+                    <p>Track medicine supplies, manufacturers, stock levels, unit prices, and expiration dates.</p>
+                </div>
+            </div>
+
+            <div class="page-card">
+                <div class="medicines-toolbar">
+                    <div class="toolbar-left">
+                        <div class="medicine-search">
+                            <span>⌕</span>
+                            <input type="text" id="medicineSearch" placeholder="Search medicine, manufacturer...">
+                        </div>
+
+                        <select id="medicineStockFilter" class="medicine-filter">
+                            <option value="">All stock statuses</option>
+                            <option value="Available">Available</option>
+                            <option value="Low Stock">Low Stock</option>
+                            <option value="Expired">Expired</option>
+                        </select>
+                    </div>
+
+                    <button type="button" class="add-medicine-btn" id="addMedicineBtn">
+                        + Add Medicine
+                    </button>
+                </div>
+
+                <div class="table-wrapper"><table>
+                        <thead>
+                            <tr>
+                                <th>MEDICINE</th>
+                                <th>MANUFACTURER</th>
+                                <th>PRICE</th>
+                                <th>QUANTITY</th>
+                                <th>EXPIRY DATE</th>
+                                <th>STOCK STATUS</th>
+                                <th>ACTIONS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="medicinesTableBody">
+                            <tr>
+                                <td colspan="7" class="table-loading">
+                                    <span class="spinner"></span> Loading medicines...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-size: 8px; color: var(--text-light);">
+                    <div id="medicineCountDisplay">Showing medicines...</div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<!-- ================= ADD / EDIT MEDICINE MODAL ================= -->
+<div class="modal-backdrop" id="medicineModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 id="medModalTitle">Add Medicine</h3>
+            <button type="button" class="modal-close-btn" onclick="closeModal('medicineModal')">&times;</button>
+        </div>
+        <form id="medicineForm">
+            <div class="modal-body">
+                <div id="medFormError" class="login-alert" style="display: none; margin-bottom: 12px;"></div>
+
+                <div class="form-group">
+                    <label for="medNameInput">Medicine Name <span class="required">*</span></label>
+                    <input type="text" id="medNameInput" placeholder="e.g. Amoxicillin 500mg" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="medMfgInput">Manufacturer <span class="required">*</span></label>
+                    <input type="text" id="medMfgInput" placeholder="e.g. Pfizer Pharmaceuticals" required>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label for="medPriceInput">Unit Price ($) <span class="required">*</span></label>
+                        <input type="number" id="medPriceInput" min="0" step="0.01" placeholder="e.g. 14.50" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="medQtyInput">Quantity in Stock <span class="required">*</span></label>
+                        <input type="number" id="medQtyInput" min="0" placeholder="e.g. 100" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="medExpiryInput">Expiry Date <span class="required">*</span></label>
+                    <input type="date" id="medExpiryInput" required>
+                </div>
+
+                <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 6px;">
+                    <input type="checkbox" id="medActive" checked style="cursor: pointer;">
+                    <label for="medActive" style="margin-bottom: 0; cursor: pointer;">Active product</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="secondary-btn" onclick="closeModal('medicineModal')">Cancel</button>
+                <button type="submit" class="primary-btn" id="saveMedBtn">Save Medicine</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/admin.js"></script>
+<script src="../js/medicines.js"></script>
+</body>
+</html>

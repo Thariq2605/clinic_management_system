@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Appointments | ClinixOne</title>
+
+    <!-- ClinixOne custom CSS -->
+    <link rel="stylesheet" href="../css/admin.css">
+
+    <style>
+        .page-card {
+            background: #ffffff;
+            border: 1px solid #e1e8f0;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(20, 55, 90, 0.06);
+            padding: 18px;
+        }
+
+        .appointments-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .appointment-search {
+            width: 250px;
+            height: 34px;
+
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
+            border: 1px solid #e1e8f0;
+            border-radius: 6px;
+            padding: 0 10px;
+        }
+
+        .appointment-search input {
+            width: 100%;
+            border: none;
+            outline: none;
+            font-size: 9px;
+        }
+
+        .appointment-filter,
+        .appointment-date {
+            height: 34px;
+            padding: 0 10px;
+
+            border: 1px solid #e1e8f0;
+            border-radius: 6px;
+
+            background: #ffffff;
+            color: #526276;
+
+            font-size: 9px;
+        }
+
+        .add-appointment-btn {
+            height: 34px;
+            padding: 0 14px;
+
+            background: #1769e8;
+            color: #ffffff;
+
+            border: none;
+            border-radius: 6px;
+
+            font-size: 9px;
+            font-weight: 600;
+
+            cursor: pointer;
+        }
+
+        .add-appointment-btn:hover {
+            background: #0f5fd6;
+        }
+
+        .appointment-id {
+            color: #1769e8;
+            font-size: 8px;
+            font-weight: 700;
+        }
+
+        .person-name {
+            color: #17263a;
+            font-size: 8px;
+            font-weight: 600;
+        }
+
+        .person-subtext {
+            color: #718096;
+            font-size: 7px;
+            margin-top: 2px;
+        }
+
+        .department-text {
+            color: #526276;
+            font-size: 8px;
+        }
+
+        .appointment-date-text {
+            color: #17263a;
+            font-size: 8px;
+            font-weight: 600;
+        }
+
+        .appointment-time {
+            color: #718096;
+            font-size: 7px;
+            margin-top: 2px;
+        }
+
+        .scheduled-badge,
+        .completed-badge,
+        .cancelled-badge,
+        .pending-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 7px;
+            font-weight: 700;
+        }
+
+        .scheduled-badge {
+            background: #eaf2ff;
+            color: #1769e8;
+        }
+
+        .completed-badge {
+            background: #e6f7f0;
+            color: #15966b;
+        }
+
+        .cancelled-badge {
+            background: #fdebee;
+            color: #df5366;
+        }
+
+        .pending-badge {
+            background: #fff4df;
+            color: #e99a22;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .action-btn {
+            border: none;
+            background: transparent;
+            font-size: 8px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .view-btn {
+            color: #735be2;
+        }
+
+        .edit-btn {
+            color: #1769e8;
+        }
+
+        .delete-btn {
+            color: #df5366;
+        }
+
+        .action-btn:hover {
+            background: #f4f7fb;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            color: #718096;
+            font-size: 8px;
+        }
+
+        .pagination-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .page-btn {
+            min-width: 27px;
+            height: 27px;
+
+            border: 1px solid #e1e8f0;
+            background: #ffffff;
+
+            border-radius: 5px;
+
+            color: #526276;
+            font-size: 8px;
+            cursor: pointer;
+        }
+
+        .page-btn.active {
+            background: #1769e8;
+            border-color: #1769e8;
+            color: #ffffff;
+        }
+
+        @media (max-width: 1100px) {
+
+            .appointments-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+
+            .toolbar-left {
+                width: 100%;
+            }
+
+            .appointment-search {
+                width: 100%;
+            }
+
+            .table-wrapper {
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="admin-layout">
+
+    <!-- ================= SIDEBAR ================= -->
+
+    <aside class="sidebar">
+
+        <div class="sidebar-logo">
+
+            <div class="logo-icon">
+                +
+            </div>
+
+            <div class="logo-text">
+
+                <h2>CLINIC SYSTEM</h2>
+
+                <span>
+                    HEALTHCARE MANAGEMENT
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <nav class="sidebar-nav">
+
+            <a href="admin_dashboard.html" class="nav-item">
+                <span class="nav-icon">⌂</span>
+                <span>Dashboard</span>
+            </a>
+
+            <a href="users.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Users</span>
+            </a>
+
+            <a href="doctors.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Doctors</span>
+            </a>
+
+            <a href="receptionists.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Receptionists</span>
+            </a>
+
+            <a href="patients.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Patients</span>
+            </a>
+
+            <a href="departments.html" class="nav-item">
+                <span class="nav-icon">▦</span>
+                <span>Departments</span>
+            </a>
+
+            <a href="specializations.html" class="nav-item">
+                <span class="nav-icon">✦</span>
+                <span>Specializations</span>
+            </a>
+
+            <a href="medicines.html" class="nav-item">
+                <span class="nav-icon">▣</span>
+                <span>Medicines</span>
+            </a>
+
+            <a href="lab_tests.html" class="nav-item">
+                <span class="nav-icon">⚗</span>
+                <span>Lab Tests</span>
+            </a>
+
+            <a href="appointments.html" class="nav-item active">
+                <span class="nav-icon">□</span>
+                <span>Appointments</span>
+            </a>
+
+            <a href="billing.html" class="nav-item">
+                <span class="nav-icon">▤</span>
+                <span>Billing</span>
+            </a>
+
+            <a href="payments.html" class="nav-item">
+                <span class="nav-icon">◉</span>
+                <span>Payments</span>
+            </a>
+
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">▥</span>
+                <span>Reports</span>
+            </a>
+
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙</span>
+                <span>Settings</span>
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-footer">
+            ClinixOne Admin Panel<br>
+            Version 1.0
+        </div>
+
+    </aside>
+
+
+    <!-- ================= MAIN CONTENT ================= -->
+
+    <main class="main-content">
+
+        <!-- HEADER -->
+
+        <header class="top-header">
+
+            <div class="breadcrumb">
+
+                <span>Admin</span>
+                <span>/</span>
+                <strong>Appointments</strong>
+
+            </div>
+
+
+            <div class="header-right">
+
+                <div class="search-box">
+
+                    <span>⌕</span>
+
+                    <input
+                        type="text"
+                        placeholder="Search..."
+                    >
+
+                    <small>Ctrl K</small>
+
+                </div>
+
+
+                <button class="notification-btn">
+                    ♧
+                </button>
+
+
+                <div class="profile">
+
+                    <div class="profile-avatar">
+                        AM
+                    </div>
+
+                    <span class="profile-name">
+                        Ava Morgan
+                    </span>
+
+                </div>
+
+            </div>
+
+        </header>
+
+
+        <!-- ================= PAGE CONTENT ================= -->
+
+        <section class="dashboard-content">
+
+
+            <!-- PAGE HEADING -->
+
+            <div class="page-heading">
+
+                <div>
+
+                    <h1>
+                        Appointments
+                    </h1>
+
+                    <p>
+                        Manage patient appointments and schedules.
+                    </p>
+
+                </div>
+
+
+                <div class="heading-actions">
+
+                    <button
+                        class="primary-btn add-appointment-btn"
+                    >
+                        + New Appointment
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================= CARD ================= -->
+
+            <div class="page-card">
+
+
+                <!-- TOOLBAR -->
+
+                <div class="appointments-toolbar">
+
+                    <div class="toolbar-left">
+
+                        <div class="appointment-search">
+
+                            <span>⌕</span>
+
+                            <input
+                                type="text"
+                                id="appointmentSearch"
+                                placeholder="Search patient or doctor..."
+                            >
+
+                        </div>
+
+
+                        <input
+                            type="date"
+                            id="appointmentDate"
+                            class="appointment-date"
+                        >
+
+
+                        <select
+                            id="statusFilter"
+                            class="appointment-filter"
+                        >
+
+                            <option value="all">
+                                All Status
+                            </option>
+
+                            <option value="scheduled">
+                                Scheduled
+                            </option>
+
+                            <option value="completed">
+                                Completed
+                            </option>
+
+                            <option value="pending">
+                                Pending
+                            </option>
+
+                            <option value="cancelled">
+                                Cancelled
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ================= TABLE ================= -->
+
+                <div class="table-wrapper"><table id="appointmentsTable">
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    APPOINTMENT
+                                </th>
+
+                                <th>
+                                    PATIENT
+                                </th>
+
+                                <th>
+                                    DOCTOR
+                                </th>
+
+                                <th>
+                                    DEPARTMENT
+                                </th>
+
+                                <th>
+                                    DATE & TIME
+                                </th>
+
+                                <th>
+                                    STATUS
+                                </th>
+
+                                <th>
+                                    ACTIONS
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody id="appointmentsTableBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+
+                <!-- PAGINATION -->
+
+                <div class="pagination">
+                    <span id="resultCount">Showing 0 appointments</span>
+                </div>
+            </div>
+
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<!-- ================= JAVASCRIPT ================= -->
+
+<!-- ================= JAVASCRIPT ================= -->
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/admin.js"></script>
+<script src="../js/appointments.js"></script>
+
+
+<!-- ================= APPOINTMENT MODAL ================= -->
+<div class="modal-overlay" id="appointmentModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 id="appointmentModalTitle">New Appointment</h2>
+            <button class="close-modal" onclick="closeModal('appointmentModal')">✕</button>
+        </div>
+        <form id="appointmentForm">
+            <div class="modal-body">
+                <div class="form-error" id="appointmentFormError"></div>
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Patient *</label>
+                        <select id="appointmentPatient" required>
+                            <option value="">Loading patients...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Doctor *</label>
+                        <select id="appointmentDoctor" required>
+                            <option value="">Loading doctors...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Date *</label>
+                        <input type="date" id="appointmentDateInput" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Time *</label>
+                        <input type="time" id="appointmentTimeInput" required>
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Reason / Notes</label>
+                        <input type="text" id="appointmentReason" placeholder="Brief description of the visit">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="appointmentStatus">
+                            <option value="scheduled">Scheduled</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Payment Status</label>
+                        <select id="appointmentPaymentStatus">
+                            <option value="Pending">Pending</option>
+                            <option value="Paid">Paid</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="secondary-btn" onclick="closeModal('appointmentModal')">Cancel</button>
+                <button type="submit" class="primary-btn" id="saveAppointmentBtn">Save Appointment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>

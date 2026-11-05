@@ -205,6 +205,41 @@ class Doctor(models.Model):
         return self.staff.full_name
 
 
+class DoctorAvailability(models.Model):
+    WEEKDAY_CHOICES = [
+        (0, "Monday"),
+        (1, "Tuesday"),
+        (2, "Wednesday"),
+        (3, "Thursday"),
+        (4, "Friday"),
+        (5, "Saturday"),
+        (6, "Sunday"),
+    ]
+
+    availability_id = models.AutoField(primary_key=True)
+    doctor = models.ForeignKey(Doctor, on_delete=models.PROTECT, db_column="doctor_id")
+    weekday = models.PositiveSmallIntegerField(choices=WEEKDAY_CHOICES)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "doctor_availability"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(weekday__gte=0, weekday__lte=6),
+                name="doctor_availability_weekday_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(start_time__lt=models.F("end_time")),
+                name="doctor_availability_start_before_end",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.doctor} - {self.get_weekday_display()}"
+
+
 # =========================================================
 # PATIENT
 # =========================================================
@@ -237,6 +272,7 @@ class Appointment(models.Model):
     STATUS_CHOICES = [
         ("scheduled", "Scheduled"),
         ("confirmed", "Confirmed"),
+        ("serving", "Serving"),
         ("completed", "Completed"),
         ("cancelled", "Cancelled"),
     ]
@@ -244,6 +280,11 @@ class Appointment(models.Model):
     PAYMENT_STATUS_CHOICES = [
         ("Pending", "Pending"),
         ("Paid", "Paid"),
+    ]
+
+    APPOINTMENT_TYPE_CHOICES = [
+        ("pre_booking", "Pre-Booking"),
+        ("walk_in", "Walk-In"),
     ]
 
     appointment_id = models.AutoField(primary_key=True)
@@ -279,6 +320,11 @@ class Appointment(models.Model):
         max_length=20,
         choices=PAYMENT_STATUS_CHOICES,
         default="Pending"
+    )
+    appointment_type = models.CharField(
+        max_length=20,
+        choices=APPOINTMENT_TYPE_CHOICES,
+        default="pre_booking"
     )
     created_at = models.DateTimeField()
     is_active = models.BooleanField(default=True)
@@ -576,6 +622,14 @@ class LabOrderItem(models.Model):
         db_column="test_id"
     )
 
+    prescription_lab_test = models.ForeignKey(
+        PrescriptionLabTest,
+        on_delete=models.PROTECT,
+        db_column="prescription_lab_test_id",
+        null=True,
+        blank=True,
+    )
+
     technician = models.ForeignKey(
         LabTechnician,
         on_delete=models.PROTECT,
@@ -586,6 +640,8 @@ class LabOrderItem(models.Model):
         max_length=20,
         choices=STATUS_CHOICES
     )
+
+    result = models.TextField(blank=True, default="")
 
     is_active = models.BooleanField(default=True)
 
@@ -731,5 +787,29 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"Payment {self.payment_id}"
+
+
+# =========================================================
+# CLINIC SETTING
+# =========================================================
+
+class ClinicSetting(models.Model):
+    setting_id = models.AutoField(primary_key=True)
+    clinic_name = models.CharField(max_length=150, default="ClinixOne Care Operations")
+    clinic_email = models.CharField(max_length=100, default="support@clinixone.com")
+    clinic_phone = models.CharField(max_length=20, default="+1 (800) 555-0199")
+    clinic_address = models.CharField(max_length=255, default="100 Medical Center Blvd, Suite 400")
+    timezone = models.CharField(max_length=50, default="UTC")
+    currency = models.CharField(max_length=10, default="USD")
+    appointment_slot_duration = models.IntegerField(default=15)
+    enable_notifications = models.BooleanField(default=True)
+    enable_email_alerts = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "clinic_setting"
+
+    def __str__(self):
+        return self.clinic_name
 
 

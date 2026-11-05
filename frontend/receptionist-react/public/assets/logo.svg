@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 50" fill="none">
+  <defs>
+    <linearGradient id="ml-blue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0EA5E9"/>
+      <stop offset="100%" stop-color="#0284C7"/>
+    </linearGradient>
+    <linearGradient id="ml-teal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14B8A6"/>
+      <stop offset="100%" stop-color="#0F766E"/>
+    </linearGradient>
+    <linearGradient id="ml-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0EA5E9" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#14B8A6" stop-opacity="0.08"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Icon Group -->
+  <g transform="translate(4, 5)">
+    <rect x="0" y="0" width="40" height="40" rx="10" fill="url(#ml-glow)" stroke="#0EA5E9" stroke-opacity="0.3" stroke-width="1.2"/>
+    <rect x="15" y="7" width="10" height="26" rx="5" fill="url(#ml-blue)"/>
+    <rect x="7" y="15" width="26" height="10" rx="5" fill="url(#ml-blue)"/>
+    <path d="M10 30C10 30 15 28 20 20C25 12 30 10 30 10C30 10 29 18 24 23C19 28 13 30 10 30Z" fill="url(#ml-teal)"/>
+    <circle cx="20" cy="20" r="3" fill="#FFFFFF"/>
+    <circle cx="20" cy="20" r="1.5" fill="#0EA5E9"/>
+  </g>
+  
+  <!-- Brand Text -->
+  <text x="54" y="27" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="21" font-weight="800" fill="#0F172A" letter-spacing="0.08em">MEDICARE</text>
+  <text x="54" y="41" font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="7.5" font-weight="700" fill="#0284C7" letter-spacing="0.18em">CLINIC MANAGEMENT SYSTEM</text>
+</svg>

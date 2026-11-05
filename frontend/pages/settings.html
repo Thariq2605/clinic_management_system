@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Settings | ClinixOne</title>
+
+    <!-- ClinixOne custom CSS -->
+    <link rel="stylesheet" href="../css/admin.css">
+
+    <style>
+        .settings-layout {
+            display: grid;
+            grid-template-columns: 210px 1fr;
+            gap: 18px;
+        }
+
+        .settings-menu {
+            background: #ffffff;
+            border: 1px solid #e1e8f0;
+            border-radius: 8px;
+            padding: 10px;
+            height: fit-content;
+        }
+
+        .settings-menu-item {
+            width: 100%;
+            border: none;
+            background: transparent;
+            padding: 11px 12px;
+            text-align: left;
+            border-radius: 6px;
+            color: #718096;
+            font-size: 8px;
+            cursor: pointer;
+            margin-bottom: 3px;
+        }
+
+        .settings-menu-item:hover {
+            background: #f4f7fb;
+            color: #1769e8;
+        }
+
+        .settings-menu-item.active {
+            background: #eaf2ff;
+            color: #1769e8;
+            font-weight: 700;
+        }
+
+        .settings-content {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .settings-section {
+            display: none;
+        }
+
+        .settings-section.active {
+            display: block;
+        }
+
+        .settings-card {
+            background: #ffffff;
+            border: 1px solid #e1e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(20, 55, 90, 0.05);
+        }
+
+        .settings-card-header {
+            margin-bottom: 18px;
+            padding-bottom: 13px;
+            border-bottom: 1px solid #edf2f7;
+        }
+
+        .settings-card-header h3 {
+            margin: 0 0 5px;
+            color: #17263a;
+            font-size: 12px;
+        }
+
+        .settings-card-header p {
+            margin: 0;
+            color: #718096;
+            font-size: 8px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group.full {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            color: #526276;
+            font-size: 8px;
+            font-weight: 600;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #dce4ed;
+            border-radius: 6px;
+            padding: 9px 10px;
+            font-family: inherit;
+            font-size: 8px;
+            color: #17263a;
+            background: #ffffff;
+            outline: none;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: #1769e8;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 70px;
+        }
+
+        .profile-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .large-avatar {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            background: #1769e8;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .profile-info h4 {
+            margin: 0 0 4px;
+            color: #17263a;
+            font-size: 11px;
+        }
+
+        .profile-info span {
+            color: #718096;
+            font-size: 7px;
+        }
+
+        .upload-btn {
+            margin-left: auto;
+            border: 1px solid #dce4ed;
+            background: #ffffff;
+            color: #526276;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 8px;
+            cursor: pointer;
+        }
+
+        .upload-btn:hover {
+            border-color: #1769e8;
+            color: #1769e8;
+        }
+
+        .toggle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #edf2f7;
+        }
+
+        .toggle-row:last-child {
+            border-bottom: none;
+        }
+
+        .toggle-info strong {
+            display: block;
+            color: #17263a;
+            font-size: 8px;
+            margin-bottom: 3px;
+        }
+
+        .toggle-info span {
+            color: #718096;
+            font-size: 7px;
+        }
+
+        .toggle {
+            position: relative;
+            width: 32px;
+            height: 17px;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            inset: 0;
+            background: #ccd5df;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .slider:before {
+            content: "";
+            position: absolute;
+            width: 13px;
+            height: 13px;
+            left: 2px;
+            top: 2px;
+            background: #ffffff;
+            border-radius: 50%;
+            transition: 0.2s;
+        }
+
+        .toggle input:checked + .slider {
+            background: #1769e8;
+        }
+
+        .toggle input:checked + .slider:before {
+            transform: translateX(15px);
+        }
+
+        .settings-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        .cancel-btn {
+            border: 1px solid #dce4ed;
+            background: #ffffff;
+            color: #526276;
+            padding: 9px 16px;
+            border-radius: 6px;
+            font-size: 8px;
+            cursor: pointer;
+        }
+
+        .save-btn {
+            border: none;
+            background: #1769e8;
+            color: #ffffff;
+            padding: 9px 18px;
+            border-radius: 6px;
+            font-size: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .save-btn:hover {
+            background: #0f5fd6;
+        }
+
+        .danger-zone {
+            border: 1px solid #f0c9cf;
+        }
+
+        .danger-zone .settings-card-header {
+            border-bottom-color: #f0dfe2;
+        }
+
+        .danger-btn {
+            border: 1px solid #df5366;
+            background: #ffffff;
+            color: #df5366;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 8px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 850px) {
+
+            .settings-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .settings-menu {
+                display: flex;
+                overflow-x: auto;
+                gap: 4px;
+            }
+
+            .settings-menu-item {
+                white-space: nowrap;
+                width: auto;
+            }
+        }
+
+        @media (max-width: 600px) {
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-group.full {
+                grid-column: auto;
+            }
+
+            .profile-section {
+                flex-wrap: wrap;
+            }
+
+            .upload-btn {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+
+
+<body>
+
+<div class="admin-layout">
+
+
+    <!-- ================= SIDEBAR ================= -->
+
+    <aside class="sidebar">
+
+        <div class="sidebar-logo">
+
+            <div class="logo-icon">
+                +
+            </div>
+
+            <div class="logo-text">
+
+                <h2>CLINIC SYSTEM</h2>
+
+                <span>
+                    HEALTHCARE MANAGEMENT
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <nav class="sidebar-nav">
+
+            <a href="admin_dashboard.html" class="nav-item">
+                <span class="nav-icon">⌂</span>
+                <span>Dashboard</span>
+            </a>
+
+            <a href="users.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Users</span>
+            </a>
+
+            <a href="doctors.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Doctors</span>
+            </a>
+
+            <a href="receptionists.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Receptionists</span>
+            </a>
+
+            <a href="patients.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Patients</span>
+            </a>
+
+            <a href="departments.html" class="nav-item">
+                <span class="nav-icon">▦</span>
+                <span>Departments</span>
+            </a>
+
+            <a href="specializations.html" class="nav-item">
+                <span class="nav-icon">✦</span>
+                <span>Specializations</span>
+            </a>
+
+            <a href="medicines.html" class="nav-item">
+                <span class="nav-icon">▣</span>
+                <span>Medicines</span>
+            </a>
+
+            <a href="lab_tests.html" class="nav-item">
+                <span class="nav-icon">⚗</span>
+                <span>Lab Tests</span>
+            </a>
+
+            <a href="appointments.html" class="nav-item">
+                <span class="nav-icon">□</span>
+                <span>Appointments</span>
+            </a>
+
+            <a href="billing.html" class="nav-item">
+                <span class="nav-icon">▤</span>
+                <span>Billing</span>
+            </a>
+
+            <a href="payments.html" class="nav-item">
+                <span class="nav-icon">◉</span>
+                <span>Payments</span>
+            </a>
+
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">▥</span>
+                <span>Reports</span>
+            </a>
+
+            <a href="settings.html" class="nav-item active">
+                <span class="nav-icon">⚙</span>
+                <span>Settings</span>
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-footer">
+            ClinixOne Admin Panel<br>
+            Version 1.0
+        </div>
+
+    </aside>
+
+
+    <!-- ================= MAIN ================= -->
+
+    <main class="main-content">
+
+
+        <!-- HEADER -->
+
+        <header class="top-header">
+
+            <div class="breadcrumb">
+
+                <span>Admin</span>
+                <span>/</span>
+                <strong>Settings</strong>
+
+            </div>
+
+
+            <div class="header-right">
+
+                <div class="search-box">
+
+                    <span>⌕</span>
+
+                    <input
+                        type="text"
+                        placeholder="Search..."
+                    >
+
+                    <small>Ctrl K</small>
+
+                </div>
+
+
+                <button class="notification-btn">
+                    ♧
+                </button>
+
+
+                <div class="profile">
+
+                    <div class="profile-avatar">
+                        AM
+                    </div>
+
+                    <span class="profile-name">
+                        Ava Morgan
+                    </span>
+
+                </div>
+
+            </div>
+
+        </header>
+
+
+        <!-- ================= CONTENT ================= -->
+
+        <section class="dashboard-content">
+
+
+            <div class="page-heading">
+
+                <div>
+
+                    <h1>
+                        Settings
+                    </h1>
+
+                    <p>
+                        Manage your account and clinic preferences.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="settings-layout">
+
+
+                <!-- SETTINGS MENU -->
+
+                <div class="settings-menu">
+
+                    <button
+                        class="settings-menu-item active"
+                        data-section="profile"
+                    >
+                        Profile
+                    </button>
+
+                    <button
+                        class="settings-menu-item"
+                        data-section="clinic"
+                    >
+                        Clinic Information
+                    </button>
+
+                    <button
+                        class="settings-menu-item"
+                        data-section="notifications"
+                    >
+                        Notifications
+                    </button>
+
+                    <button
+                        class="settings-menu-item"
+                        data-section="security"
+                    >
+                        Security
+                    </button>
+
+                    <button
+                        class="settings-menu-item"
+                        data-section="preferences"
+                    >
+                        Preferences
+                    </button>
+
+                </div>
+
+
+                <!-- SETTINGS CONTENT -->
+
+                <div class="settings-content">
+
+
+                    <!-- PROFILE -->
+
+                    <div
+                        class="settings-card settings-section active"
+                        id="profile"
+                    >
+
+                        <div class="settings-card-header">
+
+                            <h3>
+                                Profile Settings
+                            </h3>
+
+                            <p>
+                                Manage your administrator profile information.
+                            </p>
+
+                        </div>
+
+
+                        <div class="profile-section">
+
+                            <div class="large-avatar">
+                                AM
+                            </div>
+
+                            <div class="profile-info">
+
+                                <h4>
+                                    Ava Morgan
+                                </h4>
+
+                                <span>
+                                    Administrator
+                                </span>
+
+                            </div>
+
+                            <button
+                                class="upload-btn"
+                                id="changePhoto"
+                            >
+                                Change Photo
+                            </button>
+
+                        </div>
+
+
+                        <div class="form-grid">
+
+                            <div class="form-group full" style="background:#fff3cd; color:#856404; padding:10px; border-radius:6px; font-size:9px; border:1px solid #ffeeba;">
+                                <strong>Note:</strong> Profile editing is not currently supported by the Admin API.
+                            </div>
+
+                            <div class="form-group">
+
+                                <label>
+                                    Full Name
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="adminFullName"
+                                    value="Loading..."
+                                 disabled title="Profile editing is not supported by the Admin API">
+
+                            </div>
+
+                            <div class="form-group">
+
+                                <label>
+                                    Username
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="adminUsername"
+                                    value="Loading..."
+                                 disabled title="Profile editing is not supported by the Admin API">
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    Email Address
+                                </label>
+
+                                <input
+                                    type="email"
+                                    id="adminEmail"
+                                    value="Loading..."
+                                 disabled title="Profile editing is not supported by the Admin API">
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    Phone Number
+                                </label>
+
+                                <input type="tel" id="adminPhone" value="Loading..." disabled title="Profile editing is not supported by the Admin API">
+
+                            </div>
+
+
+                            <div class="form-group full">
+
+                                <label>
+                                    Role
+                                </label>
+
+                                <input
+                                    type="text"
+                                    id="adminRole"
+                                    value="Loading..."
+                                    disabled
+                                 disabled title="Profile editing is not supported by the Admin API">
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- CLINIC -->
+
+                    <div
+                        class="settings-card settings-section"
+                        id="clinic"
+                    >
+
+                        <div class="settings-card-header">
+
+                            <h3>
+                                Clinic Information
+                            </h3>
+
+                            <p>
+                                Update the information displayed for your clinic.
+                            </p>
+
+                        </div>
+
+
+                        <div class="form-grid">
+
+                            <div class="form-group full">
+
+                                <label>
+                                    Clinic Name
+                                </label>
+
+                                <input type="text" id="clinicName" value="ClinixOne Healthcare">
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    Email
+                                </label>
+
+                                <input type="email" id="clinicEmail" value="info@clinixone.com">
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    Phone
+                                </label>
+
+                                <input type="tel" id="clinicPhone" value="+91 98765 43210">
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    Country
+                                </label>
+
+                                <select disabled title="Country is not supported by the Admin API">
+
+                                    <option selected>
+                                        India
+                                    </option>
+
+                                    <option>
+                                        United States
+                                    </option>
+
+                                    <option>
+                                        United Kingdom
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    Time Zone
+                                </label>
+
+                                <select id="clinicTimezone">
+
+                                    <option value="UTC">
+                                        (GMT+00:00) UTC
+                                    </option>
+                                    <option value="Asia/Kolkata">
+                                        (GMT+05:30) India
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                            <div class="form-group full">
+
+                                <label>
+                                    Address
+                                </label>
+
+                                <textarea id="clinicAddress">ClinixOne Healthcare Center
+Thiruvananthapuram, Kerala, India</textarea>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- NOTIFICATIONS -->
+
+                    <div
+                        class="settings-card settings-section"
+                        id="notifications"
+                    >
+
+                        <div class="settings-card-header">
+
+                            <h3>
+                                Notification Preferences
+                            </h3>
+
+                            <p>
+                                Choose which notifications you want to receive.
+                            </p>
+
+                        </div>
+
+
+                        <div class="toggle-row">
+
+                            <div class="toggle-info">
+
+                                <strong>
+                                    System Notifications
+                                </strong>
+
+                                <span>
+                                    Receive alerts for new and upcoming appointments.
+                                </span>
+
+                            </div>
+
+                            <label class="toggle">
+
+                                <input type="checkbox" id="notifSys">
+
+                                <span class="slider"></span>
+
+                            </label>
+
+                        </div>
+
+
+                        <div class="toggle-row">
+
+                            <div class="toggle-info">
+
+                                <strong>
+                                    Payment Notifications
+                                </strong>
+
+                                <span>
+                                    Get notified when payments are received or pending.
+                                </span>
+
+                            </div>
+
+                            <label class="toggle" title="Not supported by the Admin API">
+
+                                <input type="checkbox" disabled>
+
+                                <span class="slider"></span>
+
+                            </label>
+
+                        </div>
+
+
+                        <div class="toggle-row">
+
+                            <div class="toggle-info">
+
+                                <strong>
+                                    Lab Order Notifications
+                                </strong>
+
+                                <span>
+                                    Receive updates about laboratory orders.
+                                </span>
+
+                            </div>
+
+                            <label class="toggle" title="Not supported by the Admin API">
+
+                                <input type="checkbox" disabled>
+
+                                <span class="slider"></span>
+
+                            </label>
+
+                        </div>
+
+
+                        <div class="toggle-row">
+
+                            <div class="toggle-info">
+
+                                <strong>
+                                    Email Notifications
+                                </strong>
+
+                                <span>
+                                    Receive important system updates by email.
+                                </span>
+
+                            </div>
+
+                            <label class="toggle">
+
+                                <input
+                                    type="checkbox"
+                                    id="notifEmail"
+                                >
+
+                                <span class="slider"></span>
+
+                            </label>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- SECURITY -->
+
+                    <div
+                        class="settings-card settings-section"
+                        id="security"
+                    >
+
+                        <div class="settings-card-header">
+
+                            <h3>
+                                Security
+                            </h3>
+
+                            <p>
+                                Update your password and security settings.
+                            </p>
+
+                        </div>
+
+
+                        <div class="form-grid">
+
+                            <div class="form-group full">
+
+                                <label>
+                                    Current Password
+                                </label>
+
+                                <input
+                                    type="password"
+                                    placeholder="Enter current password"
+                                 disabled title="Password changes not supported by the Admin API">
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    New Password
+                                </label>
+
+                                <input
+                                    type="password"
+                                    placeholder="Enter new password"
+                                 disabled title="Password changes not supported by the Admin API">
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    Confirm Password
+                                </label>
+
+                                <input
+                                    type="password"
+                                    placeholder="Confirm new password"
+                                 disabled title="Password changes not supported by the Admin API">
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- PREFERENCES -->
+
+                    <div
+                        class="settings-card settings-section"
+                        id="preferences"
+                    >
+
+                        <div class="settings-card-header">
+
+                            <h3>
+                                System Preferences
+                            </h3>
+
+                            <p>
+                                Customize how the admin panel behaves.
+                            </p>
+
+                        </div>
+
+
+                        <div class="form-grid">
+
+                            <div class="form-group">
+
+                                <label>
+                                    Language
+                                </label>
+
+                                <select disabled title="Preferences not supported by the Admin API">
+
+                                    <option selected>
+                                        English
+                                    </option>
+
+                                    <option>
+                                        Malayalam
+                                    </option>
+
+                                    <option>
+                                        Hindi
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    Date Format
+                                </label>
+
+                                <select disabled title="Preferences not supported by the Admin API">
+
+                                    <option selected>
+                                        DD/MM/YYYY
+                                    </option>
+
+                                    <option>
+                                        MM/DD/YYYY
+                                    </option>
+
+                                    <option>
+                                        YYYY-MM-DD
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    Currency
+                                </label>
+
+                                <select id="clinicCurrency">
+
+                                    <option value="INR">
+                                        INR (₹)
+                                    </option>
+
+                                    <option value="USD">
+                                        USD ($)
+                                    </option>
+
+                                    <option value="GBP">
+                                        GBP (£)
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                            <div class="form-group">
+
+                                <label>
+                                    Dashboard Refresh
+                                </label>
+
+                                <select disabled title="Preferences not supported by the Admin API">
+
+                                    <option selected>
+                                        Every 5 minutes
+                                    </option>
+
+                                    <option>
+                                        Every 10 minutes
+                                    </option>
+
+                                    <option>
+                                        Manual
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- DANGER ZONE -->
+
+                    <div class="settings-card danger-zone">
+
+                        <div class="settings-card-header">
+
+                            <h3>
+                                Account Actions
+                            </h3>
+
+                            <p>
+                                Actions that affect your current administrator session.
+                            </p>
+
+                        </div>
+
+
+                        <button
+                            class="danger-btn"
+                            id="settingsLogoutBtn"
+                        >
+                            Logout
+                        </button>
+
+                    </div>
+
+
+                    <!-- ACTIONS -->
+
+                    <div class="settings-actions">
+
+                        <button
+                            class="cancel-btn"
+                            id="cancelBtn"
+                        >
+                            Cancel
+                        </button>
+
+                        <button
+                            class="save-btn"
+                            id="saveBtn"
+                        >
+                            Save Changes
+                        </button>
+
+                    </div>
+
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/admin.js"></script>
+<script src="../js/settings.js"></script>
+
+</body>
+
+</html>

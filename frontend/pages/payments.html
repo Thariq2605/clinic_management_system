@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Payments | ClinixOne</title>
+
+    <!-- ClinixOne custom CSS -->
+    <link rel="stylesheet" href="../css/admin.css">
+
+    <style>
+        .page-card {
+            background: #ffffff;
+            border: 1px solid #e1e8f0;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(20, 55, 90, 0.06);
+            padding: 18px;
+        }
+
+        .payments-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .payment-search {
+            width: 250px;
+            height: 34px;
+
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
+            border: 1px solid #e1e8f0;
+            border-radius: 6px;
+            padding: 0 10px;
+        }
+
+        .payment-search input {
+            width: 100%;
+            border: none;
+            outline: none;
+            font-size: 9px;
+        }
+
+        .payment-filter,
+        .payment-date {
+            height: 34px;
+            padding: 0 10px;
+
+            border: 1px solid #e1e8f0;
+            border-radius: 6px;
+
+            background: #ffffff;
+            color: #526276;
+
+            font-size: 9px;
+        }
+
+        .add-payment-btn {
+            height: 34px;
+            padding: 0 14px;
+
+            background: #1769e8;
+            color: #ffffff;
+
+            border: none;
+            border-radius: 6px;
+
+            font-size: 9px;
+            font-weight: 600;
+
+            cursor: pointer;
+        }
+
+        .add-payment-btn:hover {
+            background: #0f5fd6;
+        }
+
+        .payment-id {
+            color: #1769e8;
+            font-size: 8px;
+            font-weight: 700;
+        }
+
+        .patient-name {
+            color: #17263a;
+            font-size: 8px;
+            font-weight: 600;
+        }
+
+        .patient-id {
+            color: #718096;
+            font-size: 7px;
+            margin-top: 2px;
+        }
+
+        .bill-number {
+            color: #526276;
+            font-size: 8px;
+        }
+
+        .payment-amount {
+            color: #15966b;
+            font-size: 8px;
+            font-weight: 700;
+        }
+
+        .payment-method {
+            color: #526276;
+            font-size: 8px;
+        }
+
+        .payment-date-text {
+            color: #17263a;
+            font-size: 8px;
+        }
+
+        .payment-time {
+            color: #718096;
+            font-size: 7px;
+            margin-top: 2px;
+        }
+
+        .success-badge,
+        .pending-badge,
+        .failed-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 7px;
+            font-weight: 700;
+        }
+
+        .success-badge {
+            background: #e6f7f0;
+            color: #15966b;
+        }
+
+        .pending-badge {
+            background: #fff4df;
+            color: #e99a22;
+        }
+
+        .failed-badge {
+            background: #fdebee;
+            color: #df5366;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .action-btn {
+            border: none;
+            background: transparent;
+            font-size: 8px;
+            padding: 4px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .view-btn {
+            color: #735be2;
+        }
+
+        .receipt-btn {
+            color: #15966b;
+        }
+
+        .delete-btn {
+            color: #df5366;
+        }
+
+        .action-btn:hover {
+            background: #f4f7fb;
+        }
+
+        .payment-summary {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .summary-card {
+            border: 1px solid #e1e8f0;
+            border-radius: 7px;
+            padding: 14px;
+            background: #ffffff;
+        }
+
+        .summary-label {
+            color: #718096;
+            font-size: 8px;
+            margin-bottom: 6px;
+        }
+
+        .summary-value {
+            color: #17263a;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .summary-value.green {
+            color: #15966b;
+        }
+
+        .summary-value.orange {
+            color: #e99a22;
+        }
+
+        .summary-value.red {
+            color: #df5366;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 16px;
+            color: #718096;
+            font-size: 8px;
+        }
+
+        .pagination-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .page-btn {
+            min-width: 27px;
+            height: 27px;
+
+            border: 1px solid #e1e8f0;
+            background: #ffffff;
+
+            border-radius: 5px;
+
+            color: #526276;
+            font-size: 8px;
+            cursor: pointer;
+        }
+
+        .page-btn.active {
+            background: #1769e8;
+            border-color: #1769e8;
+            color: #ffffff;
+        }
+
+        @media (max-width: 1100px) {
+
+            .payment-summary {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .payments-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+
+            .toolbar-left {
+                width: 100%;
+            }
+
+            .payment-search {
+                width: 100%;
+            }
+
+            .table-wrapper {
+                overflow-x: auto;
+            }
+        }
+
+        @media (max-width: 600px) {
+
+            .payment-summary {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+
+<body>
+
+<div class="admin-layout">
+
+
+    <!-- ================= SIDEBAR ================= -->
+
+    <aside class="sidebar">
+
+        <div class="sidebar-logo">
+
+            <div class="logo-icon">
+                +
+            </div>
+
+            <div class="logo-text">
+
+                <h2>CLINIC SYSTEM</h2>
+
+                <span>
+                    HEALTHCARE MANAGEMENT
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <nav class="sidebar-nav">
+
+            <a href="admin_dashboard.html" class="nav-item">
+                <span class="nav-icon">⌂</span>
+                <span>Dashboard</span>
+            </a>
+
+            <a href="users.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Users</span>
+            </a>
+
+            <a href="doctors.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Doctors</span>
+            </a>
+
+            <a href="receptionists.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Receptionists</span>
+            </a>
+
+            <a href="patients.html" class="nav-item">
+                <span class="nav-icon">♙</span>
+                <span>Patients</span>
+            </a>
+
+            <a href="departments.html" class="nav-item">
+                <span class="nav-icon">▦</span>
+                <span>Departments</span>
+            </a>
+
+            <a href="specializations.html" class="nav-item">
+                <span class="nav-icon">✦</span>
+                <span>Specializations</span>
+            </a>
+
+            <a href="medicines.html" class="nav-item">
+                <span class="nav-icon">▣</span>
+                <span>Medicines</span>
+            </a>
+
+            <a href="lab_tests.html" class="nav-item">
+                <span class="nav-icon">⚗</span>
+                <span>Lab Tests</span>
+            </a>
+
+            <a href="appointments.html" class="nav-item">
+                <span class="nav-icon">□</span>
+                <span>Appointments</span>
+            </a>
+
+            <a href="billing.html" class="nav-item">
+                <span class="nav-icon">▤</span>
+                <span>Billing</span>
+            </a>
+
+            <a href="payments.html" class="nav-item active">
+                <span class="nav-icon">◉</span>
+                <span>Payments</span>
+            </a>
+
+            <a href="reports.html" class="nav-item">
+                <span class="nav-icon">▥</span>
+                <span>Reports</span>
+            </a>
+
+            <a href="settings.html" class="nav-item">
+                <span class="nav-icon">⚙</span>
+                <span>Settings</span>
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-footer">
+            ClinixOne Admin Panel<br>
+            Version 1.0
+        </div>
+
+    </aside>
+
+
+    <!-- ================= MAIN CONTENT ================= -->
+
+    <main class="main-content">
+
+
+        <!-- HEADER -->
+
+        <header class="top-header">
+
+            <div class="breadcrumb">
+
+                <span>Admin</span>
+                <span>/</span>
+                <strong>Payments</strong>
+
+            </div>
+
+
+            <div class="header-right">
+
+                <div class="search-box">
+
+                    <span>⌕</span>
+
+                    <input
+                        type="text"
+                        placeholder="Search..."
+                    >
+
+                    <small>Ctrl K</small>
+
+                </div>
+
+
+                <button class="notification-btn">
+                    ♧
+                </button>
+
+
+                <div class="profile">
+
+                    <div class="profile-avatar">
+                        AM
+                    </div>
+
+                    <span class="profile-name">
+                        Ava Morgan
+                    </span>
+
+                </div>
+
+            </div>
+
+        </header>
+
+
+        <!-- ================= PAGE CONTENT ================= -->
+
+        <section class="dashboard-content">
+
+
+            <!-- PAGE HEADING -->
+
+            <div class="page-heading">
+
+                <div>
+
+                    <h1>
+                        Payments
+                    </h1>
+
+                    <p>
+                        Track and manage patient payment transactions.
+                    </p>
+
+                </div>
+
+
+                <div class="heading-actions">
+
+                    <button
+                        class="primary-btn add-payment-btn"
+                    >
+                        + Record Payment
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================= SUMMARY ================= -->
+
+            <div class="payment-summary">
+
+                <div class="summary-card">
+
+                    <div class="summary-label">
+                        TOTAL PAYMENTS
+                    </div>
+
+                    <div class="summary-value" id="totalPayments">
+                        0
+                    </div>
+
+                </div>
+
+
+                <div class="summary-card">
+
+                    <div class="summary-label">
+                        TOTAL COLLECTED
+                    </div>
+
+                    <div class="summary-value green" id="totalCollected">
+                        ₹0.00
+                    </div>
+
+                </div>
+
+
+                <div class="summary-card">
+
+                    <div class="summary-label">
+                        PENDING
+                    </div>
+
+                    <div class="summary-value orange" id="totalPending">
+                        ₹0.00
+                    </div>
+
+                </div>
+
+
+                <div class="summary-card">
+
+                    <div class="summary-label">
+                        FAILED
+                    </div>
+
+                    <div class="summary-value red" id="totalFailed">
+                        ₹0.00
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- ================= PAYMENT TABLE ================= -->
+
+            <div class="page-card">
+
+
+                <!-- TOOLBAR -->
+
+                <div class="payments-toolbar">
+
+                    <div class="toolbar-left">
+
+                        <div class="payment-search">
+
+                            <span>⌕</span>
+
+                            <input
+                                type="text"
+                                id="paymentSearch"
+                                placeholder="Search patient or payment..."
+                            >
+
+                        </div>
+
+
+                        <input
+                            type="date"
+                            id="paymentDate"
+                            class="payment-date"
+                        >
+
+
+                        <select
+                            id="paymentStatusFilter"
+                            class="payment-filter"
+                        >
+
+                            <option value="all">
+                                All Status
+                            </option>
+
+                            <option value="success">
+                                Successful
+                            </option>
+
+                            <option value="pending">
+                                Pending
+                            </option>
+
+                            <option value="failed">
+                                Failed
+                            </option>
+
+                        </select>
+
+
+                        <select
+                            id="paymentMethodFilter"
+                            class="payment-filter"
+                        >
+
+                            <option value="all">
+                                All Methods
+                            </option>
+
+                            <option value="cash">
+                                Cash
+                            </option>
+
+                            <option value="card">
+                                Card
+                            </option>
+
+                            <option value="upi">
+                                UPI
+                            </option>
+
+                            <option value="bank">
+                                Bank Transfer
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+
+                <!-- ================= TABLE ================= -->
+
+                <div class="table-wrapper"><table id="paymentsTable">
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    PAYMENT
+                                </th>
+
+                                <th>
+                                    PATIENT
+                                </th>
+
+                                <th>
+                                    BILL
+                                </th>
+
+                                <th>
+                                    AMOUNT
+                                </th>
+
+                                <th>
+                                    METHOD
+                                </th>
+
+                                <th>
+                                    DATE & TIME
+                                </th>
+
+                                <th>
+                                    STATUS
+                                </th>
+
+                                <th>
+                                    ACTIONS
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody id="paymentsTableBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+
+                <!-- ================= PAGINATION ================= -->
+
+                <div class="pagination">
+                    <span id="resultCount">Showing 0 payments</span>
+                </div>
+            </div>
+
+
+        </section>
+
+    </main>
+
+</div>
+
+
+<script src="../js/api.js"></script>
+<script src="../js/auth.js"></script>
+<script src="../js/admin.js"></script>
+<script src="../js/payments.js"></script>
+
+
+<!-- ================= PAYMENT MODAL ================= -->
+<div class="modal-overlay" id="paymentModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 id="paymentModalTitle">Record Payment</h2>
+            <button class="close-modal" onclick="closeModal('paymentModal')">✕</button>
+        </div>
+        <form id="paymentForm">
+            <div class="modal-body">
+                <div class="form-error" id="paymentFormError"></div>
+                
+                <div class="form-grid">
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Bill ID *</label>
+                        <select id="paymentBillId" required>
+                            <option value="">Loading bills...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Amount (₹) *</label>
+                        <input type="number" id="paymentAmount" step="0.01" min="0.01" required placeholder="0.00">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Payment Method *</label>
+                        <select id="paymentMethod" required>
+                            <option value="cash">Cash</option>
+                            <option value="card">Card</option>
+                            <option value="upi">UPI</option>
+                            <option value="online">Online</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Payment Date *</label>
+                        <input type="date" id="paymentDateInput" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Transaction Reference</label>
+                        <input type="text" id="paymentRef" placeholder="e.g. UPI Ref / Txn ID">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="secondary-btn" onclick="closeModal('paymentModal')">Cancel</button>
+                <button type="submit" class="primary-btn" id="savePaymentBtn">Save Payment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>
