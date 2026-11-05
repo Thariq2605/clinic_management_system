@@ -1,7 +1,26 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const projectDir = fileURLToPath(new URL('.', import.meta.url));
+const pharmacistRoot = resolve(projectDir, '../pharmacist');
 export default defineConfig({
-  plugins: [react()],
-  server: { host: '127.0.0.1', port: 5503, strictPort: true },
+  root: pharmacistRoot,
+  publicDir: resolve(projectDir, '../assets'),
+  server: {
+    host: '127.0.0.1',
+    port: 5503,
+    strictPort: true,
+    fs: { allow: [resolve(projectDir, '..')] },
+  },
+  build: {
+    outDir: resolve(projectDir, 'dist'),
+    emptyOutDir: true,
+    rollupOptions: {
+      input: [
+        resolve(pharmacistRoot, 'index.html'),
+        resolve(pharmacistRoot, 'auth-handoff.html'),
+      ],
+    },
+  },
 });

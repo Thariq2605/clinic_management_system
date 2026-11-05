@@ -1,10 +1,24 @@
-const API = 'http://127.0.0.1:8000/pharmacist';
+const API_BASE = (import.meta.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
+const API = `${API_BASE}/pharmacist`;
 const LOW = 20, PER = 8;
 const $ = (s, r = document) => r.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const json = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch { return d } };
+function sharedLoginUrl() {
+  const configured = import.meta.env?.VITE_SHARED_LOGIN_URL;
+  if (configured) {
+    const url = new URL(configured, window.location.href);
+    if (url.protocol === 'http:' || url.protocol === 'https:') return url.toString();
+  }
+  if (import.meta.env?.DEV) {
+    const url = new URL(window.location.origin);
+    url.port = '5504';
+    return `${url.origin}/`;
+  }
+  return new URL('../login.html', window.location.href).toString();
+}
 const S = {
-  user: json('user', null),
+  user: json('pharmacist_user', json('user', null)),
   meds: [],
   items: [],
   rx: [],
@@ -51,11 +65,15 @@ async function api(path, opts = {}) {
 }
 function redirectToLogin(expired = false) {
   localStorage.removeItem('pharmacist_access_token');
+  localStorage.removeItem('pharmacist_user');
+  localStorage.removeItem('pharmacist_profile');
   localStorage.removeItem('user');
   S.user = null;
   if (authRedirecting) return;
   authRedirecting = true;
-  window.location.replace(expired ? '../login.html?expired=1' : '../login.html');
+  const target = new URL(sharedLoginUrl());
+  if (expired) target.searchParams.set('expired', '1');
+  window.location.replace(target.toString());
 }
 const list = j => Array.isArray(j) ? j : j.results || [];
 const today = () => new Date().toISOString().slice(0, 10);
@@ -324,7 +342,7 @@ const VIEWS = { Dashboard: dashboard, Prescriptions: prescriptions, Medicines: m
 
 function render() {
   if (!S.user) {
-    if (!authRedirecting) window.location.replace('../login.html');
+    if (!authRedirecting) redirectToLogin();
     return;
   }
 
